@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.config import settings
 from app.db.connection import init_db
-from app.routers import novels
+from app.routers import novels, story_bibles
 
 # ============================================================
 # Logging — 默认 INFO 级别,业务模块可继续 getLogger 用
@@ -66,6 +66,7 @@ def health() -> dict:
 # 业务路由
 # ============================================================
 app.include_router(novels.router)
+app.include_router(story_bibles.router)
 
 
 @app.get("/")
