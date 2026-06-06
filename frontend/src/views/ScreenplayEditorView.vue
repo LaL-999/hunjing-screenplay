@@ -10,6 +10,8 @@
 import { computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import NovelTextPanel from "../components/NovelTextPanel.vue";
+import ScreenplayPanel from "../components/ScreenplayPanel.vue";
 import { useScreenplayStore } from "../stores/screenplay";
 
 const props = defineProps<{ id: string }>();
@@ -115,37 +117,10 @@ onMounted(() => {
       <section class="pane pane-left">
         <div class="pane-header">
           <h3>原文</h3>
-          <span class="pane-hint">点击右栏 scene 跳到对应段落</span>
+          <span class="pane-hint">{{ store.novelChapters.length }} 章 · 选中 scene 自动定位段落</span>
         </div>
         <div class="pane-body">
-          <div v-if="!store.hasScreenplay" class="placeholder">
-            <div class="placeholder-icon">
-              <svg
-                width="36"
-                height="36"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-            </div>
-            <div class="placeholder-text">
-              原文将与生成的剧本对照显示<br />
-              <span class="placeholder-hint">PR#11 commit 2 实装</span>
-            </div>
-          </div>
-          <div v-else class="placeholder">
-            <div class="placeholder-text">
-              <span class="placeholder-hint">原文渲染 — commit 2 实装</span>
-            </div>
-          </div>
+          <NovelTextPanel />
         </div>
       </section>
 
@@ -156,9 +131,10 @@ onMounted(() => {
       <section class="pane pane-right">
         <div class="pane-header">
           <h3>剧本</h3>
-          <span class="pane-hint" v-if="store.hasScreenplay">
-            scene_001 ~ scene_{{ String(store.totalScenes).padStart(3, "0") }}
+          <span v-if="store.hasScreenplay" class="pane-hint">
+            scene_001 ~ scene_{{ String(store.totalScenes).padStart(3, "0") }} · 点击切换焦点
           </span>
+          <span v-else class="pane-hint">未生成 — 点击右上「生成剧本」</span>
         </div>
         <div class="pane-body">
           <div v-if="!store.hasScreenplay" class="placeholder">
@@ -179,16 +155,10 @@ onMounted(() => {
             </div>
             <div class="placeholder-text">
               剧本待生成<br />
-              <span class="placeholder-hint">点击右上「生成剧本」</span>
+              <span class="placeholder-hint">点击右上「生成剧本」运行 LLM 流水线</span>
             </div>
           </div>
-          <div v-else class="placeholder">
-            <div class="placeholder-text">
-              <span class="placeholder-hint"
-                >scene 列表 — commit 2 实装</span
-              >
-            </div>
-          </div>
+          <ScreenplayPanel v-else />
         </div>
       </section>
     </div>

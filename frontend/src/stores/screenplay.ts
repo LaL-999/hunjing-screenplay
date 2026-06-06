@@ -11,6 +11,7 @@ import { computed, ref } from "vue";
 
 import {
   composeScreenplay,
+  getChapterParagraphs,
   getLatestScreenplay,
   getNovel,
   type ComposeRequest,
@@ -42,6 +43,22 @@ export const useScreenplayStore = defineStore("screenplay", () => {
 
   // 当前选中的 scene(用于左右栏联动 + 改编决策面板)
   const selectedSceneId = ref<string | null>(null);
+
+  // 章节元数据(给左栏渲染原文用)
+  const novelChapters = ref<
+    Array<{
+      id: string;
+      number: number;
+      title: string | null;
+      paragraph_count: number;
+      char_count: number;
+    }>
+  >([]);
+
+  // 段落正文:chapter_number → 段落列表
+  const paragraphsByChapter = ref<
+    Map<number, Array<{ index_in_chapter: number; text: string }>>
+  >(new Map());
 
   // ============================================================
   // Computed
@@ -118,6 +135,8 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     loadingState.value = "idle";
     lastError.value = "";
     selectedSceneId.value = null;
+    novelChapters.value = [];
+    paragraphsByChapter.value = new Map();
   }
 
   function selectScene(sceneId: string | null) {
@@ -151,10 +170,27 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     novelId.value = targetNovelId;
     selectedSceneId.value = null;
 
-    // 拿 novel 元数据(标题)
+    // 拿 novel 元数据(标题 + 章节列表)+ 并行抓所有段落
     try {
       const n = await getNovel(targetNovelId);
       novelTitle.value = n.title;
+      novelChapters.value = n.chapters;
+
+      // 并行抓每章的段落正文(供左栏渲染)
+      const pairs = await Promise.all(
+        n.chapters.map(async (ch) => {
+          const paragraphs = await getChapterParagraphs(ch.id);
+          return [ch.number, paragraphs] as const;
+        }),
+      );
+      const newMap = new Map<
+        number,
+        Array<{ index_in_chapter: number; text: string }>
+      >();
+      for (const [num, ps] of pairs) {
+        newMap.set(num, ps);
+      }
+      paragraphsByChapter.value = newMap;
     } catch (e) {
       lastError.value = e instanceof Error ? e.message : String(e);
       loadingState.value = "error";
@@ -215,6 +251,8 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     // state
     novelId,
     novelTitle,
+    novelChapters,
+    paragraphsByChapter,
     screenplayId,
     screenplay,
     rawYaml,
