@@ -10,6 +10,7 @@
 import { computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 
+import AdaptationDecisionPanel from "../components/AdaptationDecisionPanel.vue";
 import NovelTextPanel from "../components/NovelTextPanel.vue";
 import ScreenplayPanel from "../components/ScreenplayPanel.vue";
 import { useScreenplayStore } from "../stores/screenplay";
@@ -162,6 +163,9 @@ onMounted(() => {
         </div>
       </section>
     </div>
+
+    <!-- ===== 改编决策浮窗(差异化创新核心)===== -->
+    <AdaptationDecisionPanel />
   </div>
 </template>
 
