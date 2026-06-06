@@ -18,6 +18,10 @@ from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.services import compose_service, screenplay_store
+from app.services.pipeline.structure_analyzer import (
+    StructureSceneInput,
+    analyze_structure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +140,114 @@ def api_get_latest_screenplay(novel_id: str) -> dict:
             },
         )
     return _record_to_response(record)
+
+
+@router.get("/screenplays/{screenplay_id}/structure")
+def api_get_screenplay_structure(screenplay_id: str) -> dict:
+    """剧本结构报告(张力曲线 + 三幕分区 + 关键节点)— PR#13。
+
+    服务端解析 YAML,程序级计算结构指标(不调 LLM)。
+    """
+    import yaml as yamllib
+
+    record = screenplay_store.get_screenplay_by_id(screenplay_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "SCREENPLAY_NOT_FOUND",
+                "message": f"screenplay {screenplay_id} 不存在",
+            },
+        )
+    try:
+        parsed = yamllib.safe_load(record["yaml_text"])
+    except yamllib.YAMLError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "YAML_PARSE_FAILED", "message": str(e)},
+        )
+
+    scenes = parsed.get("scenes") if isinstance(parsed, dict) else None
+    if not isinstance(scenes, list):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "INVALID_SCREENPLAY", "message": "YAML 无 scenes 数组"},
+        )
+
+    inputs: list[StructureSceneInput] = []
+    for s in scenes:
+        if not isinstance(s, dict):
+            continue
+        elements = s.get("elements") or []
+        if not isinstance(elements, list):
+            elements = []
+        dialogue_chars = 0
+        inner_mono = 0
+        ec = 0
+        text_corpus_parts: list[str] = []
+        for el in elements:
+            if not isinstance(el, dict):
+                continue
+            etype = el.get("type", "")
+            if etype in ("action", "dialogue", "voiceover", "parenthetical"):
+                ec += 1
+            text = el.get("text") or ""
+            if isinstance(text, str):
+                text_corpus_parts.append(text)
+                if etype in ("dialogue", "voiceover"):
+                    dialogue_chars += len(text)
+        # paragraph_range → paragraph_count
+        src = s.get("source") or {}
+        pr = src.get("paragraph_range") if isinstance(src, dict) else None
+        if isinstance(pr, list) and len(pr) == 2:
+            p_count = max(1, pr[1] - pr[0] + 1)
+        else:
+            p_count = 1
+
+        fid = s.get("fidelity") or {}
+        fid_score = fid.get("score") if isinstance(fid, dict) else None
+
+        chars_present = s.get("characters_present") or []
+        chars_present_count = (
+            len(chars_present) if isinstance(chars_present, list) else 0
+        )
+
+        inputs.append(StructureSceneInput(
+            scene_id=s.get("id", ""),
+            number=int(s.get("number", 0)),
+            element_count=ec,
+            dialogue_chars=dialogue_chars,
+            inner_monologue_count=inner_mono,
+            characters_present_count=chars_present_count,
+            text_corpus="\n".join(text_corpus_parts),
+            fidelity_score=float(fid_score) if isinstance(fid_score, (int, float)) else None,
+            paragraph_count=p_count,
+        ))
+
+    # 内心独白计数:扫一遍 voiceover.is_inner_monologue(YAML 里没存这个字段,
+    # 我们没法判定;PR#9 schema 把内心独白做成"含 decision 关联"的标志,
+    # 这里用是否有 adaptation_decision 关联做兜底)
+    decision_refs: set[str] = set()
+    for d in (parsed.get("adaptation_decisions") or []):
+        if isinstance(d, dict) and d.get("element_id"):
+            decision_refs.add(d["element_id"])
+
+    # 给每场补上 inner_monologue_count(用 VO 数 ≈ 内心独白数估算)
+    for inp, s in zip(inputs, scenes):
+        if not isinstance(s, dict):
+            continue
+        vo_count = sum(
+            1 for el in (s.get("elements") or [])
+            if isinstance(el, dict) and el.get("type") == "voiceover"
+        )
+        inp.inner_monologue_count = vo_count
+
+    report = analyze_structure(inputs)
+    return {
+        "screenplay_id": screenplay_id,
+        "scene_count": len(inputs),
+        **report.to_dict(),
+    }
 
 
 @router.get(
