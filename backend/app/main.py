@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.config import settings
 from app.db.connection import init_db
-from app.routers import elements, novels, scenes, story_bibles
+from app.routers import attributions, elements, novels, scenes, story_bibles
 
 # ============================================================
 # Logging — 默认 INFO 级别,业务模块可继续 getLogger 用
@@ -70,6 +70,7 @@ app.include_router(novels.router)
 app.include_router(story_bibles.router)
 app.include_router(scenes.router)
 app.include_router(elements.router)
+app.include_router(attributions.router)
 
 
 @app.get("/")
