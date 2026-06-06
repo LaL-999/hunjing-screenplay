@@ -19,6 +19,7 @@ from app.config import settings
 from app.db.connection import init_db
 from app.routers import (
     attributions,
+    compose,
     decisions,
     elements,
     novels,
@@ -79,6 +80,7 @@ app.include_router(scenes.router)
 app.include_router(elements.router)
 app.include_router(attributions.router)
 app.include_router(decisions.router)
+app.include_router(compose.router)
 
 
 @app.get("/")
