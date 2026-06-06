@@ -1,0 +1,32 @@
+# ============================================================
+# 浑晶 · 剧创态 — Python 依赖
+# ============================================================
+# Python 3.11+ required
+
+# === Web 框架 ===
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9       # 文件上传支持
+
+# === 配置 / 校验 ===
+pydantic==2.9.2
+pydantic-settings==2.5.2      # .env 加载
+python-dotenv==1.0.1
+
+# === LLM / OpenAI 兼容协议 ===
+openai==1.51.0                # DeepSeek 用 OpenAI 兼容端点
+
+# === 文件解析 ===
+ebooklib==0.18                # .epub 解析
+beautifulsoup4==4.12.3        # ebooklib 配合用
+python-docx==1.1.2            # .docx 解析
+lxml==5.3.0                   # XML 解析(ebooklib 依赖)
+
+# === YAML + Schema 校验 ===
+PyYAML==6.0.2
+jsonschema==4.23.0
+
+# === 测试 ===
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2                 # FastAPI TestClient 依赖
