@@ -8,6 +8,7 @@ import type {
   ComposeResponse,
   NovelInfo,
   ScreenplayResponse,
+  StructureReport,
 } from "../types/screenplay";
 
 const API_BASE = "/api";
@@ -111,6 +112,12 @@ export async function getScreenplayById(
   screenplayId: string,
 ): Promise<ScreenplayResponse> {
   return request(`/screenplays/${encodeURIComponent(screenplayId)}`);
+}
+
+export async function getStructureReport(
+  screenplayId: string,
+): Promise<StructureReport> {
+  return request(`/screenplays/${encodeURIComponent(screenplayId)}/structure`);
 }
 
 // ============================================================

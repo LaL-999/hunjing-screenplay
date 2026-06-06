@@ -14,6 +14,7 @@ import {
   getChapterParagraphs,
   getLatestScreenplay,
   getNovel,
+  getStructureReport,
   type ComposeRequest,
 } from "../api/client";
 import type {
@@ -22,6 +23,7 @@ import type {
   Scene,
   Screenplay,
   ScreenplayElement,
+  StructureReport,
 } from "../types/screenplay";
 
 export type LoadingState = "idle" | "loading" | "composing" | "error" | "ready";
@@ -40,6 +42,10 @@ export const useScreenplayStore = defineStore("screenplay", () => {
   const stats = ref<Record<string, unknown>>({});
   const loadingState = ref<LoadingState>("idle");
   const lastError = ref<string>("");
+
+  // 结构报告(PR#13,按需加载)
+  const structureReport = ref<StructureReport | null>(null);
+  const structureLoading = ref<boolean>(false);
 
   // 当前选中的 scene(用于左右栏联动 + 改编决策面板)
   const selectedSceneId = ref<string | null>(null);
@@ -208,6 +214,8 @@ export const useScreenplayStore = defineStore("screenplay", () => {
       failedChapters.value = r.failed_chapters;
       stats.value = r.stats;
       loadingState.value = "ready";
+      // 顺便拉结构报告(不阻塞主加载)
+      loadStructureReport();
     } catch (e) {
       // 404 = 还没生成 → idle 不是 error
       if (e instanceof Error && e.message.includes("404")) {
@@ -217,6 +225,19 @@ export const useScreenplayStore = defineStore("screenplay", () => {
         lastError.value = e instanceof Error ? e.message : String(e);
         loadingState.value = "error";
       }
+    }
+  }
+
+  /** 拉结构报告(秒响应,无 LLM)*/
+  async function loadStructureReport(): Promise<void> {
+    if (!screenplayId.value) return;
+    structureLoading.value = true;
+    try {
+      structureReport.value = await getStructureReport(screenplayId.value);
+    } catch {
+      structureReport.value = null;
+    } finally {
+      structureLoading.value = false;
     }
   }
 
@@ -241,6 +262,8 @@ export const useScreenplayStore = defineStore("screenplay", () => {
         selectedSceneId.value = parsed.scenes[0].id;
       }
       loadingState.value = "ready";
+      // 顺便拉结构报告
+      loadStructureReport();
     } catch (e) {
       lastError.value = e instanceof Error ? e.message : String(e);
       loadingState.value = "error";
@@ -263,6 +286,8 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     lastError,
     selectedSceneId,
     userDecisionChoices,
+    structureReport,
+    structureLoading,
     // computed
     selectedScene,
     selectedSceneElements,
@@ -278,5 +303,6 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     getDecisionChoice,
     loadLatestForNovel,
     triggerCompose,
+    loadStructureReport,
   };
 });

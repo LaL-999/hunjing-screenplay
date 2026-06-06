@@ -119,6 +119,43 @@ export interface Scene {
   elements: ScreenplayElement[];
 }
 
+// 结构报告(PR#13)
+export interface StructureReport {
+  screenplay_id: string;
+  scene_count: number;
+  points: TensionPoint[];
+  acts: ActSpan[];
+  overall_health: "excellent" | "good" | "uneven" | "flat";
+  overall_score: number;
+  notes: string[];
+}
+
+export interface TensionPoint {
+  scene_id: string;
+  number: number;
+  tension: number;
+  act: 1 | 2 | 3;
+  is_inciting_incident?: boolean;
+  is_midpoint?: boolean;
+  is_climax?: boolean;
+  breakdown: {
+    density?: number;
+    conflict?: number;
+    monologue?: number;
+    casting?: number;
+    fidelity?: number;
+  };
+}
+
+export interface ActSpan {
+  act: 1 | 2 | 3;
+  start_scene_number: number;
+  end_scene_number: number;
+  scene_count: number;
+  avg_tension: number;
+  peak_tension: number;
+}
+
 // 保真度评分(PR#12)
 export interface Fidelity {
   level: "high" | "medium" | "low";

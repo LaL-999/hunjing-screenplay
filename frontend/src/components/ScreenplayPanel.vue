@@ -12,6 +12,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 
 import FidelityBadge from "./FidelityBadge.vue";
+import StructureReportPanel from "./StructureReportPanel.vue";
 import { useScreenplayStore } from "../stores/screenplay";
 import type {
   AdaptationDecision,
@@ -77,6 +78,7 @@ watch(
       <div class="empty-text">剧本待生成</div>
     </div>
     <template v-else>
+      <StructureReportPanel />
       <article
         v-for="scene in scenes"
         :key="scene.id"
