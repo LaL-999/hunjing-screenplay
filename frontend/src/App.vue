@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 
 const backendStatus = ref<"unknown" | "ok" | "error">("unknown");
-const backendInfo = ref<{ version?: string; llm_model?: string }>({});
+const backendInfo = ref<{ version?: string; llm_model?: string; llm_configured?: boolean }>({});
 const errorMsg = ref<string>("");
 
 async function checkBackend() {
@@ -41,23 +41,48 @@ onMounted(() => {
 
     <section class="status-card">
       <h2>后端服务状态</h2>
-      <div v-if="backendStatus === 'unknown'" class="status-row">
-        <span class="dot dot--pending"></span>
-        <span>正在连接 backend...</span>
-      </div>
-      <div v-else-if="backendStatus === 'ok'" class="status-row status-row--ok">
-        <span class="dot dot--ok"></span>
-        <span>已连接</span>
-        <span class="meta">v{{ backendInfo.version }} · LLM: {{ backendInfo.llm_model }}</span>
-      </div>
-      <div v-else class="status-row status-row--err">
-        <span class="dot dot--err"></span>
-        <span>未连接 — {{ errorMsg }}</span>
-      </div>
-      <p class="hint">
-        若未连接,请检查 backend 是否在 8002 端口运行:<br />
-        <code>cd backend && uvicorn app.main:app --reload --port 8002</code>
-      </p>
+
+      <!-- 主状态:三态互斥 unknown / ok / error -->
+      <template v-if="backendStatus === 'unknown'">
+        <div class="status-row">
+          <span class="dot dot--pending"></span>
+          <span>正在连接 backend...</span>
+        </div>
+      </template>
+      <template v-else-if="backendStatus === 'ok'">
+        <div class="status-row status-row--ok">
+          <span class="dot dot--ok"></span>
+          <span>已连接</span>
+          <span class="meta">v{{ backendInfo.version }} · LLM: {{ backendInfo.llm_model }}</span>
+        </div>
+        <!-- LLM 配置子状态 — 已连接时才显示 -->
+        <div
+          v-if="backendInfo.llm_configured === false"
+          class="status-row status-row--warn"
+        >
+          <span class="dot dot--warn"></span>
+          <span>LLM API key 未配置</span>
+          <span class="meta">编辑 backend/.env 填入 DEEPSEEK_API_KEY</span>
+        </div>
+        <div
+          v-else-if="backendInfo.llm_configured === true"
+          class="status-row status-row--ok"
+        >
+          <span class="dot dot--ok"></span>
+          <span>LLM 已配置</span>
+          <span class="meta">DeepSeek 凭据已加载</span>
+        </div>
+      </template>
+      <template v-else>
+        <div class="status-row status-row--err">
+          <span class="dot dot--err"></span>
+          <span>未连接 — {{ errorMsg }}</span>
+        </div>
+        <p class="hint">
+          请检查 backend 是否在 8003 端口运行:<br />
+          <code>cd backend &amp;&amp; uvicorn app.main:app --reload --port 8003</code>
+        </p>
+      </template>
     </section>
 
     <section class="roadmap">
@@ -75,18 +100,20 @@ onMounted(() => {
     </section>
 
     <footer class="footer">
-      <a href="https://github.com" target="_blank">GitHub 仓库</a>
-      ·
-      <a href="/docs/SCHEMA_DESIGN.md" target="_blank">Schema 设计文档</a>
+      <a href="https://github.com/LaL-999/hunjing-screenplay" target="_blank">GitHub 仓库</a>
+      <span class="sep">·</span>
+      <a href="http://localhost:8003/docs" target="_blank">API 文档</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/LaL-999/hunjing-screenplay/blob/main/docs/SCHEMA_DESIGN.md" target="_blank">Schema 设计</a>
     </footer>
   </main>
 </template>
 
 <style scoped>
 .app {
-  max-width: 720px;
-  margin: 48px auto;
-  padding: 0 24px;
+  max-width: 640px;
+  margin: 36px auto;
+  padding: 0 20px;
   font-family:
     -apple-system, "PingFang SC", "Microsoft YaHei", Segoe UI, Roboto,
     sans-serif;
@@ -95,11 +122,11 @@ onMounted(() => {
 
 .hdr {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
 }
 .hdr h1 {
-  font-size: 28px;
-  margin: 0 0 6px;
+  font-size: 22px;
+  margin: 0 0 4px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -108,7 +135,7 @@ onMounted(() => {
 }
 .tagline {
   color: #6a665e;
-  font-size: 14px;
+  font-size: 12.5px;
   margin: 0;
 }
 
@@ -116,17 +143,17 @@ onMounted(() => {
 .roadmap {
   background: #fffdf9;
   border: 1px solid #ece8de;
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
 }
 .status-card h2,
 .roadmap h2 {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
-  color: #6a665e;
-  margin: 0 0 12px;
-  letter-spacing: 0.04em;
+  color: #9a968d;
+  margin: 0 0 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -134,19 +161,30 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13.5px;
+  padding: 4px 0;
+}
+.status-row + .status-row {
+  border-top: 1px dashed #ece8de;
+  margin-top: 4px;
+  padding-top: 8px;
 }
 .status-row .meta {
   color: #9a968d;
-  font-size: 12px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   margin-left: auto;
+  text-align: right;
 }
 .status-row--ok {
   color: #047857;
 }
 .status-row--err {
   color: #b91c1c;
+}
+.status-row--warn {
+  color: #b45309;
+  margin-top: 6px;
 }
 
 .dot {
@@ -161,6 +199,9 @@ onMounted(() => {
 .dot--err {
   background: #ef4444;
 }
+.dot--warn {
+  background: #f59e0b;
+}
 .dot--pending {
   background: #9ca3af;
   animation: blink 1.4s ease-in-out infinite;
@@ -171,26 +212,26 @@ onMounted(() => {
 }
 
 .hint {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #9a968d;
-  margin-top: 12px;
-  line-height: 1.7;
+  margin: 10px 0 0;
+  line-height: 1.6;
 }
 .hint code {
   background: #f5f3ee;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .roadmap ol {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 18px;
 }
 .roadmap li {
-  font-size: 13.5px;
-  line-height: 1.9;
+  font-size: 12.5px;
+  line-height: 1.75;
   color: #4a4640;
 }
 .roadmap li.done {
@@ -206,15 +247,25 @@ onMounted(() => {
 
 .footer {
   text-align: center;
-  margin-top: 32px;
-  font-size: 12px;
+  margin-top: 24px;
+  font-size: 11.5px;
   color: #9a968d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .footer a {
   color: #8b5cf6;
   text-decoration: none;
+  transition: color 150ms;
 }
 .footer a:hover {
   text-decoration: underline;
+  color: #7c3aed;
+}
+.footer .sep {
+  color: #d1cfc7;
 }
 </style>
