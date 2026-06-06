@@ -17,6 +17,7 @@ from app.config import settings
 _SCHEMA_FILES = [
     "schema.sql",                # PR#3:novels / chapters / paragraphs
     "story_bible_schema.sql",    # PR#4:故事圣经 5 张表
+    "screenplay_schema.sql",     # PR#10:剧本组装持久化表
 ]
 
 
