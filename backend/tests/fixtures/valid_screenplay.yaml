@@ -1,0 +1,112 @@
+meta:
+  schema_version: "1.0"
+  title: "孤独的钟表匠"
+  source:
+    novel_title: "时间的褶皱"
+    adapted_from_chapters: [1, 2, 3]
+  logline: "三十岁钟表匠林深修复一只来自母亲遗物的怀表,故事在第三个雨夜揭开他童年的失踪谜团。"
+  generated_by:
+    platform: "浑晶 · 剧创态"
+    schema_version: "1.0"
+    model: "deepseek-chat"
+    generated_at: "2026-06-06T10:00:00Z"
+  stats:
+    total_scenes: 2
+    total_pages_estimate: 4
+    high_fidelity_scenes: 1
+    medium_fidelity_scenes: 1
+    low_fidelity_scenes: 0
+
+characters:
+  - id: char_001
+    name: "林深"
+    aka: ["林先生", "老板"]
+    description: "三十岁,沉默寡言的钟表匠"
+    first_appearance: scene_001
+  - id: char_002
+    name: "陌生女子"
+    aka: ["她"]
+    description: "一身风尘的中年妇人,手持怀表"
+    first_appearance: scene_001
+
+locations:
+  - id: loc_001
+    name: "老城钟表铺"
+    int_ext: INT
+    description: "堆满旧钟的逼仄店面"
+    first_appearance: scene_001
+  - id: loc_002
+    name: "雨夜街道"
+    int_ext: EXT
+    description: "民国风老街,煤气灯昏黄"
+
+scenes:
+  - id: scene_001
+    number: 1
+    heading:
+      int_ext: INT
+      location_id: loc_001
+      time_of_day: 日
+    summary: "林深修表时,陌生女子推门而入"
+    characters_present: [char_001, char_002]
+    source:
+      chapter: 1
+      paragraph_range: [3, 9]
+    fidelity:
+      level: high
+      reason: "原文动作明确,几乎无需改编"
+    transition_to_next: CUT_TO
+    elements:
+      - type: action
+        id: el_001_001
+        text: "林深低头打磨齿轮。门铃响。他没抬头。"
+      - type: dialogue
+        id: el_001_002
+        character_id: char_002
+        parenthetical: "(声音发抖)"
+        text: "你能修好它吗?"
+      - type: voiceover
+        id: el_001_003
+        character_id: char_001
+        text: "我一眼认出那是父亲的怀表。"
+        adaptation_note: "原文为内心独白。备选见 adaptation_decisions[0]"
+
+  - id: scene_002
+    number: 2
+    heading:
+      int_ext: EXT
+      location_id: loc_002
+      time_of_day: 夜
+    summary: "女子离开钟表铺,消失在雨夜中"
+    characters_present: [char_002]
+    fidelity:
+      level: medium
+      reason: "原文含背景说明,已部分转视觉叙事"
+      issues: ["背景信息略丢失"]
+    elements:
+      - type: action
+        id: el_002_001
+        text: "女子撑伞走入雨幕。她回头看了一眼钟表铺的灯光。"
+      - type: transition
+        id: el_002_002
+        text: "FADE OUT."
+
+adaptation_decisions:
+  - id: dec_001
+    scene_id: scene_001
+    element_id: el_001_003
+    original_text: |
+      林深心里咯噔一下。他知道,那是父亲三十年前丢失的怀表。
+    options:
+      - type: voiceover
+        text: "我一眼认出那是父亲的怀表。"
+        pros: "保留主观视角,情感直接"
+        cons: "依赖 V.O.,部分导演不喜欢"
+      - type: action_externalize
+        text: "林深的手指猛地一颤,齿轮跌在桌上。"
+        pros: "纯视觉,更剧本化"
+        cons: "丢失'认出'的明确性"
+      - type: delete
+        rationale: "若紧接的对白能体现父子线,可删"
+    chosen: voiceover
+    chosen_at: "2026-06-06T10:02:00Z"
