@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.config import settings
 from app.db.connection import init_db
-from app.routers import novels, story_bibles
+from app.routers import novels, scenes, story_bibles
 
 # ============================================================
 # Logging — 默认 INFO 级别,业务模块可继续 getLogger 用
@@ -59,6 +59,7 @@ def health() -> dict:
         "service": "hunjing-screenplay",
         "version": __version__,
         "llm_model": settings.deepseek_model,
+        "llm_configured": not settings.deepseek_api_key.startswith("sk-NOT-SET"),
     }
 
 
@@ -67,6 +68,7 @@ def health() -> dict:
 # ============================================================
 app.include_router(novels.router)
 app.include_router(story_bibles.router)
+app.include_router(scenes.router)
 
 
 @app.get("/")
@@ -92,3 +94,12 @@ async def on_startup() -> None:
     logger.info("  DB:    %s", settings.database_path)
     logger.info("  Upload: %s", settings.upload_dir)
     logger.info("  CORS:  %s", ", ".join(settings.cors_origins))
+
+    # API key 检查 — 未配时大字号警告(不阻断启动)
+    if settings.deepseek_api_key.startswith("sk-NOT-SET"):
+        logger.warning("")
+        logger.warning("  ⚠  DEEPSEEK_API_KEY 未配置")
+        logger.warning("  ⚠  非 LLM 功能(摄入 / 校验 / CLI)可用")
+        logger.warning("  ⚠  需要 LLM 的功能(故事圣经自动抽取等)会返 401 / 502")
+        logger.warning("  ⚠  解决:编辑 backend/.env 填入 DEEPSEEK_API_KEY")
+        logger.warning("")
