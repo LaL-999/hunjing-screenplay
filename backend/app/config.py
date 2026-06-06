@@ -13,8 +13,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# 加载 .env(若存在)
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]  # backend/
+# 加载 .env(若存在)— config.py 在 backend/app/,parents[1]=backend/(正确)
+# 修复了 2026/06/06:之前误用 parents[2] 跑到仓库根目录找不到 .env
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]  # backend/
 _ENV_FILE = _PROJECT_ROOT / ".env"
 if _ENV_FILE.exists():
     load_dotenv(_ENV_FILE)
@@ -51,24 +52,25 @@ class Settings:
     project_root: Path = field(default=_PROJECT_ROOT)
 
 
-def _require(name: str) -> str:
-    """读 env 变量,缺失则 fail-fast。"""
-    v = os.getenv(name)
-    if not v:
-        raise RuntimeError(
-            f"环境变量 {name} 未设置 — 请把 backend/.env.example 复制为 .env 后填值"
-        )
-    return v
+_PLACEHOLDER_KEY = "sk-NOT-SET-LLM-CALLS-WILL-FAIL"
 
 
 def _read_settings() -> Settings:
-    """启动时调一次。"""
+    """启动时调一次。
+
+    DEEPSEEK_API_KEY 缺失时不 fail-fast:
+      - 用 placeholder 让 backend 起得来
+      - 不依赖 LLM 的功能(上传 / 校验 / CLI)仍可用
+      - 真调 LLM 时 OpenAI SDK 会报 401(用户即时看到要配 key)
+    """
     db_path = _PROJECT_ROOT / os.getenv("DATABASE_PATH", "data/screenplay.db")
     upload_dir = _PROJECT_ROOT / os.getenv("UPLOAD_DIR", "data/uploads")
     cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:5174")
 
+    api_key = os.getenv("DEEPSEEK_API_KEY") or _PLACEHOLDER_KEY
+
     return Settings(
-        deepseek_api_key=_require("DEEPSEEK_API_KEY"),
+        deepseek_api_key=api_key,
         deepseek_api_base=os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
         llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "60")),

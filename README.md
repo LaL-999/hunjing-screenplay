@@ -70,10 +70,10 @@ python -m venv venv
 # Windows: venv\Scripts\activate
 # Linux/Mac: source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8002
+uvicorn app.main:app --reload --port 8003
 ```
 
-后端启动后,健康检查:`http://localhost:8002/health` 应返回 `{"status":"ok"}`
+后端启动后,健康检查:`http://localhost:8003/health` 应返回 `{"status":"ok"}`
 
 ### 3. 启动 frontend
 

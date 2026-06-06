@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================
 REM 浑晶 · 剧创态 — 一键开发环境启动(Windows)
-REM   backend:  http://localhost:8002
+REM   backend:  http://localhost:8003
 REM   frontend: http://localhost:5174
 REM ============================================================
 
@@ -11,7 +11,7 @@ echo.
 echo ============================================================
 echo   浑晶 · 剧创态 Dev — Starting...
 echo.
-echo   Backend  : http://localhost:8002
+echo   Backend  : http://localhost:8003
 echo   Frontend : http://localhost:5174
 echo.
 echo   Two services will run in separate child windows.
@@ -34,7 +34,7 @@ if not exist "%~dp0backend\.env" (
 
 REM ---- start backend ----
 echo Starting backend...
-start "hunjing-screenplay backend (8002)" cmd /k "cd /d %~dp0backend && uvicorn app.main:app --reload --port 8002"
+start "hunjing-screenplay backend (8003)" cmd /k "cd /d %~dp0backend && uvicorn app.main:app --reload --port 8003"
 
 REM ---- start frontend ----
 echo Starting frontend...

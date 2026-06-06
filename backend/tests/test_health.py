@@ -32,3 +32,5 @@ def test_health_includes_llm_info():
     r = client.get("/health")
     body = r.json()
     assert body["llm_model"] == "deepseek-chat"
+    # llm_configured 字段:测试环境用 placeholder key,应返 False
+    assert "llm_configured" in body

@@ -64,11 +64,11 @@ Thumbs.db
 .env.*.local
 backend/.env
 
-# 本地数据 / 上传文件
-backend/data/*.db
-backend/data/*.db-journal
-backend/data/uploads/
-backend/data/screenplays/
+# 本地数据 / 上传文件(backend 启动时根据当前工作目录创建,可能落在 backend/data/ 或仓库根 data/)
+backend/data/
+data/
+*.db
+*.db-journal
 
 # 临时文件
 *.tmp
