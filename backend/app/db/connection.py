@@ -13,7 +13,11 @@ from pathlib import Path
 from app.config import settings
 
 
-_SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+# 按顺序加载的 schema 文件(后加的表可引用先建的表)
+_SCHEMA_FILES = [
+    "schema.sql",                # PR#3:novels / chapters / paragraphs
+    "story_bible_schema.sql",    # PR#4:故事圣经 5 张表
+]
 
 
 def get_connection() -> sqlite3.Connection:
@@ -34,13 +38,15 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """启动时调一次 — 跑 schema.sql 创建所有表(IF NOT EXISTS)。"""
-    if not _SCHEMA_PATH.exists():
-        raise FileNotFoundError(f"schema.sql not found at {_SCHEMA_PATH}")
-    schema_sql = _SCHEMA_PATH.read_text(encoding="utf-8")
+    """启动时调一次 — 按顺序执行所有 schema 文件(IF NOT EXISTS 幂等)。"""
+    schemas_dir = Path(__file__).parent
     conn = get_connection()
     try:
-        conn.executescript(schema_sql)
+        for filename in _SCHEMA_FILES:
+            path = schemas_dir / filename
+            if not path.exists():
+                raise FileNotFoundError(f"{filename} not found at {path}")
+            conn.executescript(path.read_text(encoding="utf-8"))
         conn.commit()
     finally:
         conn.close()
