@@ -73,3 +73,6 @@ backend/data/screenplays/
 # 临时文件
 *.tmp
 *.bak
+
+# AI 跨会话记忆文件(不进仓库)
+SESSION_MEMORY.md
