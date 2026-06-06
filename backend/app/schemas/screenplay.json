@@ -1,0 +1,335 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hunjing/screenplay/schemas/screenplay-v1.json",
+  "title": "Screenplay YAML Schema v1.0",
+  "description": "浑晶 · 剧创态 — 剧本结构化 YAML 的严格机器校验规范。\n详见 docs/SCHEMA_DESIGN.md。",
+
+  "type": "object",
+  "required": ["meta", "characters", "locations", "scenes"],
+  "additionalProperties": false,
+
+  "properties": {
+    "meta": { "$ref": "#/$defs/meta" },
+    "characters": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/character" }
+    },
+    "locations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/location" }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scene" }
+    },
+    "adaptation_decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/adaptation_decision" },
+      "description": "改编决策审计 — 每条内心独白的 3 备选与作者选择(可空)"
+    }
+  },
+
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "required": ["schema_version", "title", "generated_by"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Schema 版本,如 1.0 / 1.1 — 用于未来兼容路径"
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "source": {
+          "type": "object",
+          "properties": {
+            "novel_title": { "type": "string" },
+            "adapted_from_chapters": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "logline": { "type": "string", "maxLength": 300 },
+        "generated_by": {
+          "type": "object",
+          "required": ["platform"],
+          "properties": {
+            "platform": { "type": "string" },
+            "schema_version": { "type": "string" },
+            "model": { "type": "string" },
+            "generated_at": { "type": "string", "format": "date-time" }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "total_scenes": { "type": "integer", "minimum": 0 },
+            "total_pages_estimate": { "type": "integer", "minimum": 0 },
+            "high_fidelity_scenes": { "type": "integer", "minimum": 0 },
+            "medium_fidelity_scenes": { "type": "integer", "minimum": 0 },
+            "low_fidelity_scenes": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+
+    "character": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^char_\\d{3,5}$",
+          "description": "稳定 ID,格式 char_001"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "aka": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "别名 / 称呼,用于对白归属代词消解"
+        },
+        "description": { "type": "string", "maxLength": 500 },
+        "first_appearance": {
+          "type": "string",
+          "pattern": "^scene_\\d{3,5}$"
+        },
+        "arc_summary": { "type": "string", "maxLength": 200 }
+      }
+    },
+
+    "location": {
+      "type": "object",
+      "required": ["id", "name", "int_ext"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^loc_\\d{3,5}$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "int_ext": {
+          "type": "string",
+          "enum": ["INT", "EXT", "INT/EXT"]
+        },
+        "description": { "type": "string", "maxLength": 500 },
+        "first_appearance": {
+          "type": "string",
+          "pattern": "^scene_\\d{3,5}$"
+        }
+      }
+    },
+
+    "scene": {
+      "type": "object",
+      "required": ["id", "number", "heading", "elements"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^scene_\\d{3,5}$"
+        },
+        "number": { "type": "integer", "minimum": 1 },
+        "heading": { "$ref": "#/$defs/scene_heading" },
+        "summary": { "type": "string", "maxLength": 300 },
+        "characters_present": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^char_\\d{3,5}$" }
+        },
+        "source": { "$ref": "#/$defs/scene_source" },
+        "fidelity": { "$ref": "#/$defs/fidelity" },
+        "transition_to_next": {
+          "type": "string",
+          "enum": ["CUT_TO", "FADE_OUT", "FADE_IN", "DISSOLVE_TO", "MATCH_CUT", "SMASH_CUT", "CONTINUOUS"]
+        },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/element" }
+        }
+      }
+    },
+
+    "scene_heading": {
+      "type": "object",
+      "required": ["int_ext", "location_id", "time_of_day"],
+      "additionalProperties": false,
+      "properties": {
+        "int_ext": {
+          "type": "string",
+          "enum": ["INT", "EXT", "INT/EXT"]
+        },
+        "location_id": {
+          "type": "string",
+          "pattern": "^loc_\\d{3,5}$"
+        },
+        "time_of_day": {
+          "type": "string",
+          "enum": ["日", "夜", "黄昏", "黎明", "深夜", "凌晨", "连续", "稍后"]
+        }
+      }
+    },
+
+    "scene_source": {
+      "type": "object",
+      "properties": {
+        "chapter": { "type": "integer", "minimum": 1 },
+        "paragraph_range": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[start, end] 段落区间(含端点)"
+        }
+      }
+    },
+
+    "fidelity": {
+      "type": "object",
+      "required": ["level"],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "reason": { "type": "string", "maxLength": 200 },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 100 }
+        }
+      }
+    },
+
+    "element": {
+      "oneOf": [
+        { "$ref": "#/$defs/element_action" },
+        { "$ref": "#/$defs/element_dialogue" },
+        { "$ref": "#/$defs/element_parenthetical" },
+        { "$ref": "#/$defs/element_voiceover" },
+        { "$ref": "#/$defs/element_transition" },
+        { "$ref": "#/$defs/element_flashback" }
+      ]
+    },
+
+    "element_action": {
+      "type": "object",
+      "required": ["type", "id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "action" },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+
+    "element_dialogue": {
+      "type": "object",
+      "required": ["type", "id", "character_id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "dialogue" },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "character_id": { "type": "string", "pattern": "^char_\\d{3,5}$" },
+        "parenthetical": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "对白前的表演提示,圆括号包裹"
+        },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+
+    "element_parenthetical": {
+      "type": "object",
+      "required": ["type", "id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "parenthetical" },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+
+    "element_voiceover": {
+      "type": "object",
+      "required": ["type", "id", "character_id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "voiceover" },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "character_id": { "type": "string", "pattern": "^char_\\d{3,5}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "adaptation_note": { "type": "string", "maxLength": 500 }
+      }
+    },
+
+    "element_transition": {
+      "type": "object",
+      "required": ["type", "id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "transition" },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 50 }
+      }
+    },
+
+    "element_flashback": {
+      "type": "object",
+      "required": ["type", "id", "marker"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["flashback_start", "flashback_end"]
+        },
+        "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "marker": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+
+    "adaptation_decision": {
+      "type": "object",
+      "required": ["id", "scene_id", "element_id", "options"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^dec_\\d{3,5}$" },
+        "scene_id": { "type": "string", "pattern": "^scene_\\d{3,5}$" },
+        "element_id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
+        "original_text": { "type": "string", "minLength": 1 },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/adaptation_option" }
+        },
+        "chosen": {
+          "type": "string",
+          "enum": ["voiceover", "action_externalize", "delete"]
+        },
+        "chosen_at": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "adaptation_option": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["voiceover", "action_externalize", "delete"]
+        },
+        "text": { "type": "string" },
+        "pros": { "type": "string", "maxLength": 200 },
+        "cons": { "type": "string", "maxLength": 200 },
+        "rationale": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}
