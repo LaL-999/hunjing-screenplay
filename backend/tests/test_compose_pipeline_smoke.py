@@ -228,6 +228,38 @@ def test_smoke_partial_chapter_failure_does_not_break_pipeline(temp_db, monkeypa
 # ============================================================
 
 
+def test_smoke_fidelity_scoring_written_to_yaml(temp_db, monkeypatch):
+    """PR#12:每个 scene 应被评分,fidelity 字段写入 YAML."""
+    from app.services.yaml_validator import validate_screenplay_yaml
+
+    novel_id = _ingest_sample_novel()
+    _patch_bible_for_sample(monkeypatch)
+    _patch_pipeline_for_smoke(monkeypatch)
+
+    result = compose_service.orchestrate_full_pipeline(novel_id)
+
+    # YAML 通过校验(含 fidelity 字段)
+    vr = validate_screenplay_yaml(result.yaml_text)
+    assert vr.valid, [(i.layer, i.path, i.message) for i in vr.errors()]
+
+    # 每个 scene 都有 fidelity 字段
+    parsed = vr.parsed
+    assert parsed is not None
+    for scene in parsed["scenes"]:
+        assert "fidelity" in scene, f"scene {scene['id']} 缺 fidelity"
+        fid = scene["fidelity"]
+        assert fid["level"] in ("high", "medium", "low")
+        assert 0.0 <= fid.get("score", 0.0) <= 1.0
+        # 至少有 dimensions(4 维)
+        assert "dimensions" in fid
+        assert len(fid["dimensions"]) == 4
+        dim_names = {d["name"] for d in fid["dimensions"]}
+        assert dim_names == {
+            "dialogue_coverage", "character_alignment",
+            "element_density", "decision_completeness",
+        }
+
+
 def test_smoke_progress_callback_event_sequence(temp_db, monkeypatch):
     """progress_callback 接到的事件序列正确。
 

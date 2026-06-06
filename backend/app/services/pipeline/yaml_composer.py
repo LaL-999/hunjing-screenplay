@@ -50,6 +50,7 @@ class SceneAssembleData:
     elements: list[ScreenplayElement]
     decisions: list[AdaptationDecision] = field(default_factory=list)
     transition_to_next: str = ""           # 空 → 不写入 yaml(避免 schema 枚举校验失败)
+    fidelity: dict | None = None           # PR#12:{level, score, reason, issues, dimensions}
 
 
 @dataclass
@@ -408,12 +409,49 @@ def _build_scenes(
             }
         if s.transition_to_next and s.transition_to_next.strip():
             scene_dict["transition_to_next"] = s.transition_to_next.strip()
+        if s.fidelity and isinstance(s.fidelity, dict) and s.fidelity.get("level"):
+            scene_dict["fidelity"] = _sanitize_fidelity(s.fidelity)
         # elements 放最后(可读性最高)
         scene_dict["elements"] = confirmed_elements
 
         scenes_section.append(scene_dict)
 
     return scenes_section, scene_id_map, element_id_lookup
+
+
+def _sanitize_fidelity(fid: dict) -> dict:
+    """裁剪 fidelity 字段对齐 schema(防止超长 / 多余键)。"""
+    out: dict[str, Any] = {"level": fid["level"]}
+    if "score" in fid:
+        try:
+            out["score"] = max(0.0, min(1.0, float(fid["score"])))
+        except (TypeError, ValueError):
+            pass
+    if isinstance(fid.get("reason"), str) and fid["reason"]:
+        out["reason"] = fid["reason"][:200]
+    if isinstance(fid.get("issues"), list):
+        out["issues"] = [
+            str(i)[:200] for i in fid["issues"] if i
+        ]
+    if isinstance(fid.get("dimensions"), list):
+        dims: list[dict] = []
+        for d in fid["dimensions"]:
+            if not isinstance(d, dict):
+                continue
+            name = d.get("name")
+            score = d.get("score")
+            if not isinstance(name, str) or not isinstance(score, (int, float)):
+                continue
+            entry: dict[str, Any] = {
+                "name": name[:50],
+                "score": max(0.0, min(1.0, float(score))),
+            }
+            if isinstance(d.get("reason"), str) and d["reason"]:
+                entry["reason"] = d["reason"][:200]
+            dims.append(entry)
+        if dims:
+            out["dimensions"] = dims
+    return out
 
 
 def _reorder_element_keys(partial: dict) -> dict:

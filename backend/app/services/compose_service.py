@@ -53,6 +53,10 @@ from app.services.pipeline.element_extractor import (
     build_scene_text,
     extract_elements,
 )
+from app.services.pipeline.fidelity_scorer import (
+    FidelityInput,
+    score_scene_fidelity,
+)
 from app.services.pipeline.scene_splitter import (
     ChapterInput,
     SceneSplitError,
@@ -287,6 +291,15 @@ def orchestrate_full_pipeline(
                 )
                 stats_counter["decision_calls"] += 1
 
+            # 3b4. fidelity 评分(程序级,无 LLM)
+            fidelity_dict = _compute_fidelity(
+                scene_text=scene_text,
+                characters_present=list(sp.characters_present),
+                bible=bible_for_composer,
+                elements=elements,
+                decisions=decisions,
+            )
+
             all_scenes.append(SceneAssembleData(
                 chapter_number=ch_num,
                 scene_index_in_chapter=sp.scene_index_in_chapter,
@@ -297,6 +310,7 @@ def orchestrate_full_pipeline(
                 elements=elements,
                 decisions=decisions,
                 transition_to_next=sp.transition_to_next,
+                fidelity=fidelity_dict,
             ))
 
         _emit(progress_callback, "chapter_done", {
@@ -494,6 +508,43 @@ def _run_adaptation_decision(
 # ============================================================
 # 辅助 — 角色解析 + 事件推送
 # ============================================================
+
+
+def _compute_fidelity(
+    scene_text: str,
+    characters_present: list[str],
+    bible: dict,
+    elements: list[ScreenplayElement],
+    decisions: list,
+) -> dict | None:
+    """对一场调用 fidelity_scorer + 兜底异常,返 dict 写入 SceneAssembleData。
+
+    任何错误 → 返 None(不阻断 pipeline)。
+    """
+    try:
+        # 构 aka lookup(给 character_alignment 兜底用)
+        aka_lookup: dict[str, list[str]] = {}
+        for c in bible.get("characters") or []:
+            if not isinstance(c, dict):
+                continue
+            nm = (c.get("name") or "").strip()
+            if not nm:
+                continue
+            aka_lookup[nm] = [
+                str(a).strip() for a in (c.get("aka") or [])
+                if isinstance(a, str) and a.strip()
+            ]
+        result = score_scene_fidelity(FidelityInput(
+            scene_text=scene_text,
+            characters_present_names=characters_present,
+            elements=elements,
+            decisions=decisions,
+            character_aka_lookup=aka_lookup,
+        ))
+        return result.to_dict()
+    except Exception as e:   # noqa: BLE001
+        logger.warning("fidelity scorer raised, dropping: %s", e)
+        return None
 
 
 def _resolve_characters_in_scene(

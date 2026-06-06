@@ -198,10 +198,24 @@
           "type": "string",
           "enum": ["high", "medium", "low"]
         },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
         "reason": { "type": "string", "maxLength": 200 },
         "issues": {
           "type": "array",
-          "items": { "type": "string", "maxLength": 100 }
+          "items": { "type": "string", "maxLength": 200 }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "score"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "maxLength": 50 },
+              "score": { "type": "number", "minimum": 0, "maximum": 1 },
+              "reason": { "type": "string", "maxLength": 200 }
+            }
+          }
         }
       }
     },
