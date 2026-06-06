@@ -7,10 +7,11 @@
  *  - commit 3:改编决策 3 选项面板(差异化)
  *  - commit 4:触发 compose + 进度对话框
  */
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import AdaptationDecisionPanel from "../components/AdaptationDecisionPanel.vue";
+import ComposeDialog from "../components/ComposeDialog.vue";
 import NovelTextPanel from "../components/NovelTextPanel.vue";
 import ScreenplayPanel from "../components/ScreenplayPanel.vue";
 import { useScreenplayStore } from "../stores/screenplay";
@@ -31,6 +32,14 @@ const status = computed(() => {
 
 function goHome() {
   router.push({ name: "home" });
+}
+
+const composeDialogVisible = ref<boolean>(false);
+function openComposeDialog() {
+  composeDialogVisible.value = true;
+}
+function closeComposeDialog() {
+  composeDialogVisible.value = false;
 }
 
 // 路由变化时重新加载
@@ -92,6 +101,7 @@ onMounted(() => {
             store.loadingState === 'loading' ||
             store.loadingState === 'composing'
           "
+          @click="openComposeDialog"
         >
           <svg
             width="14"
@@ -166,6 +176,12 @@ onMounted(() => {
 
     <!-- ===== 改编决策浮窗(差异化创新核心)===== -->
     <AdaptationDecisionPanel />
+
+    <!-- ===== 编排对话框 ===== -->
+    <ComposeDialog
+      :visible="composeDialogVisible"
+      @close="closeComposeDialog"
+    />
   </div>
 </template>
 
