@@ -85,6 +85,33 @@ npm run dev
 
 打开浏览器:`http://localhost:5174`
 
+### 4. 端到端 API 示例(无需前端,curl 即可演示)
+
+启动后端后,以下三步即可走完整套流水线:
+
+```bash
+# 1) 摄入小说(返 novel_id)
+curl -X POST http://localhost:8003/novels \
+  -F "file=@your_novel.txt"
+
+# 2) 自动抽取故事圣经(可选,compose 会自动触发)
+curl -X POST http://localhost:8003/novels/{novel_id}/story-bible/auto
+
+# 3) 一键编排:小说 → 剧本 YAML(差异化创新核心 — 改编决策摊给作者)
+curl -X POST http://localhost:8003/novels/{novel_id}/compose-screenplay \
+  -H "Content-Type: application/json" \
+  -d '{}'                                      # 全选项默认即可
+
+# 后续查询(秒响应,无需 LLM)
+curl http://localhost:8003/novels/{novel_id}/screenplay     # 最新版本
+curl http://localhost:8003/screenplays/{screenplay_id}      # 特定版本
+```
+
+`POST /compose-screenplay` 返回完整 YAML + stats + warnings + failed_chapters。
+所有 4 个 LLM agent(scene_splitter / element_extractor / dialogue_attributor /
+adaptation_decision)按 PR#6-9 编排串联,任一 agent 失败都有降级路径,**不会**
+让单点 LLM 嘴瓢导致整本剧本崩盘。详见 [`docs/SCHEMA_DESIGN.md`](./docs/SCHEMA_DESIGN.md)。
+
 ---
 
 ## 🏗 技术栈
