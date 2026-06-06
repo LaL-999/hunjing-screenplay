@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.config import settings
+from app.db.connection import init_db
+from app.routers import novels
 
 # ============================================================
 # Logging — 默认 INFO 级别,业务模块可继续 getLogger 用
@@ -60,6 +62,12 @@ def health() -> dict:
     }
 
 
+# ============================================================
+# 业务路由
+# ============================================================
+app.include_router(novels.router)
+
+
 @app.get("/")
 def root() -> dict:
     """根路径 — 给好奇打开浏览器直接访问的用户一个引导。"""
@@ -76,6 +84,8 @@ def root() -> dict:
 # ============================================================
 @app.on_event("startup")
 async def on_startup() -> None:
+    # 启动时初始化 DB(IF NOT EXISTS,幂等可重跑)
+    init_db()
     logger.info("浑晶 · 剧创态 启动完成 v%s", __version__)
     logger.info("  LLM:   %s @ %s", settings.deepseek_model, settings.deepseek_api_base)
     logger.info("  DB:    %s", settings.database_path)
