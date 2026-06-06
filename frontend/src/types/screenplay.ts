@@ -114,13 +114,24 @@ export interface Scene {
     chapter?: number;
     paragraph_range?: [number, number];
   };
-  fidelity?: {
-    level: "high" | "medium" | "low";
-    reason?: string;
-    issues?: string[];
-  };
+  fidelity?: Fidelity;
   transition_to_next?: string;
   elements: ScreenplayElement[];
+}
+
+// 保真度评分(PR#12)
+export interface Fidelity {
+  level: "high" | "medium" | "low";
+  score?: number;
+  reason?: string;
+  issues?: string[];
+  dimensions?: FidelityDimension[];
+}
+
+export interface FidelityDimension {
+  name: string;
+  score: number;
+  reason?: string;
 }
 
 export type ScreenplayElement =

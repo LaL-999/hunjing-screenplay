@@ -11,6 +11,7 @@
  */
 import { computed, nextTick, ref, watch } from "vue";
 
+import FidelityBadge from "./FidelityBadge.vue";
 import { useScreenplayStore } from "../stores/screenplay";
 import type {
   AdaptationDecision,
@@ -89,6 +90,12 @@ watch(
             {{ scene.heading.int_ext }}. {{ locationName(scene.heading.location_id) }} —
             {{ scene.heading.time_of_day }}
           </span>
+          <FidelityBadge
+            v-if="scene.fidelity"
+            :fidelity="scene.fidelity"
+            class="scene-fidelity"
+            @click.stop
+          />
         </header>
 
         <p v-if="scene.summary" class="scene-summary">{{ scene.summary }}</p>
@@ -162,11 +169,14 @@ watch(
 
 .scene-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   font-weight: 700;
   text-transform: uppercase;
   margin-bottom: 6px;
+}
+.scene-fidelity {
+  margin-left: auto;
 }
 .scene-no {
   font-size: 10.5px;
