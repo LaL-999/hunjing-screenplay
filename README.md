@@ -131,6 +131,10 @@ npm run dev
 > npm install --registry=https://registry.npmmirror.com
 > ```
 > 运行时**不需要联通任何境外服务**:LLM 走 DeepSeek 国产 API,字体走系统内置,无 Google Fonts / 无 OpenAI 调用。
+>
+> ⚠ **如果生成剧本时报 `Connection error`** — 大概率是**本机代理软件**(Clash / V2Ray / 加速器)把 `api.deepseek.com` 劫持到了 `127.0.0.1`。
+> 验证:`curl -sS -o /dev/null -w "%{remote_ip}\n" https://api.deepseek.com` — 如果返回 `127.0.0.1` 就是被劫持了。
+> 解决:① 关掉代理 TUN 模式 / 系统代理;② 或在代理的"绕过规则"里把 `api.deepseek.com` 加白名单;③ 或保持代理开启也能用。
 
 ### 3. 配置 LLM Key(可选)
 
