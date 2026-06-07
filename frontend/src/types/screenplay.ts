@@ -205,6 +205,7 @@ export interface VoiceoverElement {
   character_id: string;
   text: string;
   adaptation_note?: string;
+  voice_source?: "VO" | "OS";   // PR#16 升级 3:VO=画外音/OS=画外音效
 }
 
 export interface TransitionElement {
@@ -223,18 +224,26 @@ export interface FlashbackElement {
 // 改编决策(差异化创新核心)
 // ============================================================
 
+// 5 种专业改编手法(PR#16 升级 2)
+export type AdaptationOptionType =
+  | "voiceover"
+  | "action_externalize"
+  | "subtext"
+  | "symbolism"
+  | "delete";
+
 export interface AdaptationDecision {
   id: string; // dec_NNN
   scene_id: string;
   element_id: string;
   original_text: string;
   options: AdaptationOption[];
-  chosen?: "voiceover" | "action_externalize" | "delete";
+  chosen?: AdaptationOptionType;
   chosen_at?: string;
 }
 
 export interface AdaptationOption {
-  type: "voiceover" | "action_externalize" | "delete";
+  type: AdaptationOptionType;
   text?: string;
   pros?: string;
   cons?: string;
@@ -250,4 +259,55 @@ export interface NovelParagraph {
   chapter_title: string | null;
   index_in_chapter: number;
   text: string;
+}
+
+// ============================================================
+// 优化(PR#16 — A 单场精修 + B 整本重排,共用类型)
+// ============================================================
+
+export type OptimizeScope = "single_scene" | "full_screenplay";
+export type OptimizeFocus = "fidelity" | "structure" | "both";
+
+export interface OptimizeRequest {
+  scope: OptimizeScope;
+  target_scene_id?: string;
+  focus?: OptimizeFocus;
+  // PR#16 C:作者已做的决策 — 让 LLM 尊重作者偏好
+  user_decisions?: Record<string, "voiceover" | "action_externalize" | "delete" | "subtext" | "symbolism" | "montage">;
+}
+
+export interface ChangeLogEntry {
+  scene_id: string;
+  original_scene_id: string | null;
+  action: "modified" | "added" | "removed" | "split" | "merged";
+  summary: string;
+  addresses_diagnostic: string;
+  details: string;
+}
+
+export interface OptimizeResponse {
+  new_screenplay_id: string;
+  parent_screenplay_id: string;
+  origin: string;
+  change_log: ChangeLogEntry[];
+  reasoning: string;
+  fallback_reason: string | null;
+  llm_usage: { input_tokens?: number; output_tokens?: number };
+}
+
+// 版本树
+export interface ScreenplayVersion {
+  id: string;
+  parent_screenplay_id: string | null;
+  origin: string;                                   // 'initial' | 'single_scene_<id>' | 'full_screenplay'
+  created_at: string;
+  scene_count: number;
+  change_count: number;
+  reasoning_snippet: string;
+  optimization_log?: {
+    change_log: ChangeLogEntry[];
+    reasoning: string;
+    fallback_reason?: string | null;
+    focus?: string;
+  } | null;
 }

@@ -11,10 +11,15 @@
 import { computed, ref } from "vue";
 
 import { useScreenplayStore } from "../stores/screenplay";
-import type { AdaptationDecision, AdaptationOption } from "../types/screenplay";
+import type {
+  AdaptationDecision,
+  AdaptationOption,
+  AdaptationOptionType,
+} from "../types/screenplay";
 
 const store = useScreenplayStore();
-const collapsed = ref<boolean>(false);
+// 默认折叠 — 用户主动展开才显示三选项内容(用户反馈:不希望进入页面就被遮)
+const collapsed = ref<boolean>(true);
 
 const decisions = computed<AdaptationDecision[]>(
   () => store.selectedSceneDecisions,
@@ -24,18 +29,22 @@ const hasDecisions = computed<boolean>(() => decisions.value.length > 0);
 const optionTypeLabel: Record<string, string> = {
   voiceover: "V.O. 画外音",
   action_externalize: "动作外化",
+  subtext: "潜台词",
+  symbolism: "意象化",
   delete: "删除",
 };
 
 const optionTypeMicro: Record<string, string> = {
   voiceover: "保留主观叙述",
   action_externalize: "转为可见动作",
+  subtext: "话里藏话,以张力暗示",
+  symbolism: "借道具或空镜喻情",
   delete: "假后续场景能体现",
 };
 
 function sortedOptions(d: AdaptationDecision): AdaptationOption[] {
   // 推荐项排第一,其他按 V.O. / 动作 / 删除 顺序
-  const order = ["voiceover", "action_externalize", "delete"];
+  const order = ["voiceover", "action_externalize", "subtext", "symbolism", "delete"];
   const rec = d.options.find((o) => o.type === d.chosen);
   const sorted = [...d.options].sort(
     (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
@@ -57,7 +66,7 @@ function isChosen(decisionId: string, type: string): boolean {
 
 function choose(
   decisionId: string,
-  type: "voiceover" | "action_externalize" | "delete",
+  type: AdaptationOptionType,
 ) {
   store.chooseAdaptationOption(decisionId, type);
 }
@@ -73,8 +82,8 @@ function toggle() {
       v-if="hasDecisions"
       :class="['decision-panel', { collapsed }]"
     >
-      <!-- 标题栏 -->
-      <header class="dp-head">
+      <!-- 标题栏 — 整张可点击展开/折叠(用户反馈:不只是右侧小箭头) -->
+      <header class="dp-head" @click="toggle" role="button" :aria-expanded="!collapsed">
         <div class="dp-head-left">
           <svg
             width="14"
@@ -93,7 +102,7 @@ function toggle() {
           <h3 class="dp-title">改编决策</h3>
           <span class="dp-count">{{ decisions.length }} 条 · 作者拍板</span>
         </div>
-        <button class="dp-toggle" @click="toggle" :title="collapsed ? '展开' : '收起'">
+        <button class="dp-toggle" :title="collapsed ? '展开' : '收起'" tabindex="-1">
           <svg
             v-if="collapsed"
             width="14"
@@ -160,7 +169,7 @@ function toggle() {
                   v-if="recommendedType(d) === opt.type"
                   class="option-rec-badge"
                 >
-                  AI 推荐
+                  建议
                 </span>
                 <span v-if="isChosen(d.id, opt.type)" class="option-chosen-badge">
                   <svg
@@ -179,12 +188,19 @@ function toggle() {
                 </span>
               </div>
               <p class="option-micro">{{ optionTypeMicro[opt.type] }}</p>
-              <!-- V.O. / 动作:展示改写文本 -->
+              <!-- 改写文本(适用于 V.O. / 动作 / 潜台词 / 意象化 — 4 种文本型手法) -->
               <p
-                v-if="opt.text && (opt.type === 'voiceover' || opt.type === 'action_externalize')"
+                v-if="opt.text && opt.type !== 'delete'"
                 class="option-text"
               >
                 {{ opt.text }}
+              </p>
+              <!-- 空文本兜底 — LLM 偷懒不给改写时显示明确提示 -->
+              <p
+                v-else-if="opt.type !== 'delete'"
+                class="option-text option-text-empty"
+              >
+                AI 未给出此手法的具体改写 — 可重新生成本场决策
               </p>
               <!-- 删除:展示 rationale -->
               <p v-if="opt.rationale" class="option-rationale">
@@ -212,7 +228,8 @@ function toggle() {
 <style scoped>
 .decision-panel {
   position: fixed;
-  right: 20px;
+  /* 挪到左下角 — 遮原文影响小,留出右侧剧本区域给"改编对比"使用 */
+  left: 20px;
   bottom: 20px;
   width: 420px;
   max-height: calc(100vh - 100px);
@@ -241,36 +258,58 @@ function toggle() {
   opacity: 0;
 }
 
-/* 标题栏 */
+/* 标题栏 — 微淡紫底,让"改编决策"在剧本主区里能被一眼定位但不喧宾夺主 */
 .dp-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg,
-    rgba(139, 92, 246, 0.08),
-    rgba(139, 92, 246, 0.02));
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+  background: linear-gradient(
+    180deg,
+    rgba(142, 111, 179, 0.08),
+    rgba(142, 111, 179, 0.04)
+  );
   flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+  /* 顶部细紫色 accent — 1px,克制 */
+  border-top: 2px solid #8e6fb3;
+}
+.dp-head:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(142, 111, 179, 0.14),
+    rgba(142, 111, 179, 0.08)
+  );
+}
+.decision-panel.collapsed .dp-head {
+  border-bottom: none;
 }
 .dp-head-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .dp-icon {
-  color: var(--accent);
+  color: #8e6fb3;
+  opacity: 1;
 }
 .dp-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 500;
   margin: 0;
-  color: var(--text);
+  color: var(--text-strong);
+  letter-spacing: 0.02em;
 }
 .dp-count {
   font-size: 10.5px;
-  color: var(--text-muted);
+  color: #8e6fb3;
   padding-left: 4px;
+  font-family: var(--font-mono);
+  opacity: 0.85;
 }
 .dp-toggle {
   display: inline-flex;
@@ -375,6 +414,12 @@ function toggle() {
 .option--action_externalize {
   border-left: 4px solid var(--decision-action);
 }
+.option--subtext {
+  border-left: 4px solid var(--decision-subtext);
+}
+.option--symbolism {
+  border-left: 4px solid var(--decision-symbolism);
+}
 .option--delete {
   border-left: 4px solid var(--decision-delete);
 }
@@ -393,12 +438,12 @@ function toggle() {
 .option-rec-badge {
   display: inline-block;
   font-size: 9.5px;
-  padding: 1px 6px;
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--warning);
-  border-radius: 8px;
-  letter-spacing: 0.04em;
+  padding: 0 6px;
+  color: var(--text-muted);
+  letter-spacing: 0.16em;
   margin-left: 4px;
+  font-family: var(--font-mono);
+  border-left: 1px solid var(--border);
 }
 .option-chosen-badge {
   margin-left: auto;
@@ -426,6 +471,12 @@ function toggle() {
   padding: 6px 10px;
   background: rgba(0, 0, 0, 0.02);
   border-radius: 5px;
+}
+.option-text-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  background: var(--warning-soft);
+  border: 1px dashed var(--warning);
 }
 
 .option-rationale {

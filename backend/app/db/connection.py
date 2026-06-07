@@ -39,7 +39,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """启动时调一次 — 按顺序执行所有 schema 文件(IF NOT EXISTS 幂等)。"""
+    """启动时调一次 — 按顺序执行所有 schema 文件(IF NOT EXISTS 幂等)+ 跑 in-place migrations。"""
     schemas_dir = Path(__file__).parent
     conn = get_connection()
     try:
@@ -48,6 +48,32 @@ def init_db() -> None:
             if not path.exists():
                 raise FileNotFoundError(f"{filename} not found at {path}")
             conn.executescript(path.read_text(encoding="utf-8"))
+        # Idempotent ALTER TABLE migrations(PR#16+)
+        _run_in_place_migrations(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def _run_in_place_migrations(conn: sqlite3.Connection) -> None:
+    """幂等 ALTER TABLE — SQLite 不支持 ADD COLUMN IF NOT EXISTS,所以查 PRAGMA。
+
+    每个 migration 必须先查 column 是否已存在,再 ALTER。
+    """
+    def _has_column(table: str, col: str) -> bool:
+        cur = conn.execute(f"PRAGMA table_info({table})")
+        return any(row[1] == col for row in cur.fetchall())
+
+    # PR#16 — screenplays 版本树
+    if not _has_column("screenplays", "parent_screenplay_id"):
+        conn.execute(
+            "ALTER TABLE screenplays ADD COLUMN parent_screenplay_id TEXT"
+        )
+    if not _has_column("screenplays", "optimization_origin"):
+        conn.execute(
+            "ALTER TABLE screenplays ADD COLUMN optimization_origin TEXT"
+        )
+    if not _has_column("screenplays", "optimization_log_json"):
+        conn.execute(
+            "ALTER TABLE screenplays ADD COLUMN optimization_log_json TEXT"
+        )

@@ -1,45 +1,101 @@
 /* ============================================================
- * 浑晶 · 剧创态 全局样式
- * 设计语言:奶白底 / 紫色点缀 / 字体驱动 / 克制文气(对齐浑晶平台)
+ * 浑晶 · 剧创态 全局样式 (v2 — 文学产品气质大改造)
+ *
+ * 设计哲学:
+ *   - 不像 AI 工具,像文学编辑器
+ *   - 衬线字体做品牌、标题、文学正文
+ *   - 米黄纸张底色 + 茄紫降饱和点缀
+ *   - 大量留白,克制装饰,克制色彩
+ *   - 剧本块用 Courier 风格等宽(对齐 Hollywood Spec Script Format)
+ * ============================================================ */
+
+/* ============================================================
+ * 字体加载(系统字体为主,降低首次渲染开销)
  * ============================================================ */
 
 :root {
-  /* === 主色板(短名 — PR#11+ 组件优先用) === */
-  --bg: #faf7f2;
-  --card-bg: #fffdf9;
-  --hover-bg: #f5f3ed;
-  --code-bg: #f5f3ee;
-  --text: #2a2724;
-  --text-secondary: #6a665e;
-  --text-muted: #9a968d;
-  --border: #ece8de;
-  --accent: #8b5cf6;
-  --accent-hover: #7c3aed;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  /* === 字体栈 === */
+  /* 衬线 — 给品牌 / 标题 / 文学正文 */
+  --font-serif:
+    "Source Han Serif SC", "Source Han Serif CN", "Noto Serif SC",
+    "Noto Serif CJK SC", "Songti SC", "宋体", Georgia, "Times New Roman",
+    serif;
+  /* 无衬线 — UI 文字 / meta 信息 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    "Hiragino Sans GB", Segoe UI, Roboto, sans-serif;
+  /* 等宽 — 剧本 element / 场号 / 时间戳 */
+  --font-mono:
+    "Source Han Mono", "JetBrains Mono", "Fira Code", ui-monospace,
+    "SF Mono", Menlo, "Cascadia Code", monospace;
+  /* 等宽衬线(剧本印刷感) */
+  --font-mono-serif:
+    "Source Han Mono", "Courier Prime", "Courier New", "PingFang SC",
+    monospace;
 
-  /* 改编决策三色(差异化标识) */
-  --decision-voiceover: #8b5cf6;       /* 紫 — V.O. */
-  --decision-action: #0ea5e9;          /* 青 — 动作外化 */
-  --decision-delete: #6b7280;          /* 灰 — 删除 */
+  /* === 配色 v2 — 暖纸张 + 暗烟紫 === */
+  --bg: #faf7f0;                         /* 主背景 — 米黄纸张 */
+  --bg-deep: #f3efe5;                    /* 深一档(章节分割等) */
+  --card-bg: #fffdf6;                    /* 卡片底 — 比 bg 亮一档 */
+  --card-bg-strong: #ffffff;             /* 极白卡(modal 等) */
+  --hover-bg: #f1ede1;                   /* hover 浅色 */
+  --code-bg: #f5f2e8;                    /* 代码 / 等宽块底 */
 
-  /* === 圆角 === */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --text: #2c2a26;                       /* 主文字 — 深棕(不是死黑) */
+  --text-secondary: #6f6a60;             /* 次要文字 */
+  --text-muted: #a8a499;                 /* 弱化文字 */
+  --text-strong: #1c1a17;                /* 强调文字(标题) */
 
-  /* === 阴影 === */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.08);
+  --border: #e8e1d1;                     /* 主边框 — 米色 */
+  --border-soft: #f0eadb;                /* 软边框(几乎隐形) */
+
+  /* 主点缀色 — 茄紫降饱和(不再 #8b5cf6 那种 SaaS 紫) */
+  --accent: #7c6996;                     /* 暗烟紫 */
+  --accent-hover: #695584;
+  --accent-soft: #f3f0f7;                /* 极淡紫底 */
+  --accent-text: #5b4a78;                /* 紫色文字加深一档 */
+
+  --success: #5f8f6a;                    /* 山岚绿 */
+  --success-soft: #ecf2ed;
+  --warning: #c39657;                    /* 古铜黄 */
+  --warning-soft: #f7f0e3;
+  --danger: #b85a5a;                     /* 暗朱红 */
+  --danger-soft: #f5ebeb;
+
+  /* 改编决策五色(差异化标识 — 5 种专业改编手法,降饱和) */
+  --decision-voiceover: #7c6996;         /* 烟紫 — V.O. */
+  --decision-action: #5d8aa8;            /* 钢蓝 — 动作外化 */
+  --decision-subtext: #a86d4e;            /* 暮棕 — 潜台词,温润有深度 */
+  --decision-symbolism: #6d8a6d;          /* 山岚绿 — 意象化,自然意象 */
+  --decision-delete: #8a8479;            /* 灰褐 — 删除 */
+
+  /* === 圆角 — 更小,更印刷感 === */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* === 阴影 — 更柔,几乎消失 === */
+  --shadow-sm: 0 1px 1px rgba(50, 40, 20, 0.025);
+  --shadow-md: 0 2px 8px rgba(50, 40, 20, 0.04);
+  --shadow-lg: 0 6px 24px rgba(50, 40, 20, 0.06);
+
+  /* === 留白尺度(rem 单位 — 全局可缩放) === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 
   /* === 过渡 === */
-  --transition-fast: 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-base: 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 380ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* === 旧名兼容(PR#1 组件还在用,留着) === */
+  /* === 旧名兼容 === */
   --color-bg: var(--bg);
   --color-surface: var(--card-bg);
   --color-text: var(--text);
@@ -62,25 +118,54 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    -apple-system, "PingFang SC", "Microsoft YaHei", Segoe UI, Roboto,
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 文字渲染优化 — 衬线字体效果更好 */
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
 #app {
   min-height: 100vh;
 }
 
+/* ============================================================
+ * 文学正文 helper class — 用衬线 + 大行高 + 字间距
+ * ============================================================ */
+.literary {
+  font-family: var(--font-serif);
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  letter-spacing: 0.005em;
+}
+
+.literary-heading {
+  font-family: var(--font-serif);
+  font-weight: 500;       /* 衬线字体不需要太粗 */
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+}
+
+/* ============================================================
+ * 剧本印刷格式 — 等宽,模仿 Hollywood Spec Script
+ * ============================================================ */
+.scripted {
+  font-family: var(--font-mono-serif);
+  font-feature-settings: normal;       /* 等宽不要 ligature */
+  letter-spacing: 0;
+}
+
 a {
   color: var(--accent);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 a:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  color: var(--accent-hover);
+  border-bottom: 1px solid currentColor;
 }
 
 button {
@@ -91,5 +176,47 @@ button {
 
 code,
 pre {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
+}
+
+/* ============================================================
+ * 滚动条 — 极简
+ * ============================================================ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ============================================================
+ * 选中文字 — 用主色调
+ * ============================================================ */
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* ============================================================
+ * 通用 hr — 用于段落分割
+ * ============================================================ */
+.divider-soft {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--border),
+    transparent
+  );
+  border: none;
+  margin: var(--space-5) 0;
 }

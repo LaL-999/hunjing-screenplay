@@ -112,39 +112,46 @@ watch(
 
 <style scoped>
 .novel-text {
-  font-size: 13.5px;
-  line-height: 1.85;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.9;
   color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 .chapter-block + .chapter-block {
-  margin-top: 32px;
+  margin-top: var(--space-7);
 }
 
 .chapter-heading {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin: 0 0 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed var(--border);
-  letter-spacing: 0.04em;
+  gap: var(--space-2);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-strong);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+  letter-spacing: 0.02em;
 }
 .ch-no {
-  color: var(--text);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
 }
 .ch-title {
-  color: var(--text-muted);
-  font-weight: 400;
+  color: var(--text-strong);
+  font-weight: 500;
 }
 .ch-meta {
   margin-left: auto;
   font-size: 10.5px;
   color: var(--text-muted);
-  font-weight: 400;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
 }
 
 .paragraphs {
@@ -155,35 +162,38 @@ watch(
 
 .paragraph {
   display: flex;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  margin: 2px 0;
-  transition: background 200ms;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
+  margin: var(--space-2) 0;
+  transition: all var(--transition-base);
 }
 .paragraph.highlighted {
-  background: rgba(139, 92, 246, 0.08);
+  background: var(--accent-soft);
   border-left: 2px solid var(--accent);
-  padding-left: 12px;
+  padding-left: calc(var(--space-3) + 2px);
   margin-left: -2px;
 }
 .p-index {
   flex-shrink: 0;
   width: 24px;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   text-align: right;
-  padding-top: 4px;
+  padding-top: 8px;
   user-select: none;
+  opacity: 0.6;
 }
 .paragraph.highlighted .p-index {
   color: var(--accent);
-  font-weight: 600;
+  opacity: 1;
 }
 .p-text {
   flex: 1;
   word-break: break-word;
+  text-indent: 2em;        /* 文学排版:首行缩进 */
 }
 
 .empty {

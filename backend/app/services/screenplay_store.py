@@ -41,23 +41,26 @@ def save_screenplay(
     failed_chapters: list[int],
     schema_version: str = "1.0",
     model_name: str | None = None,
+    parent_screenplay_id: str | None = None,
+    optimization_origin: str | None = None,
+    optimization_log: dict | None = None,
 ) -> str:
     """持久化一次 compose 结果,返 screenplay_id。
 
+    PR#16 新增 3 个字段:
+        parent_screenplay_id: 上一版的 id(版本树父节点),initial compose 为 None
+        optimization_origin: 'initial' | 'single_scene_<id>' | 'full_screenplay'
+        optimization_log: {change_log, reasoning} — AI 优化日志(initial 为 None)
+
     Args:
-        novel_id: 关联的 novels.id(必须存在 — DB 外键会校验)
-        yaml_text: 完整剧本 YAML 文本
-        stats: 统计字典(json 可序列化)
-        warnings: warning 列表,每个含 {layer, path, message}
-        failed_chapters: 整章降级失败的章节号列表
-        schema_version: 对齐 meta.schema_version
-        model_name: 调用的 LLM 模型名(审计用,可空)
+        novel_id: 关联的 novels.id
+        ... 见原参数
+        parent_screenplay_id: 版本树父节点
+        optimization_origin: 本版本的来源
+        optimization_log: 优化过程的 change_log + reasoning
 
     Returns:
         新建的 screenplay_id(UUID hex)
-
-    Raises:
-        sqlite3.IntegrityError: novel_id 不存在(外键冲突)
     """
     screenplay_id = _new_id()
     now = _now_iso()
@@ -67,8 +70,9 @@ def save_screenplay(
         conn.execute(
             """INSERT INTO screenplays
                (id, novel_id, yaml_text, stats_json, warnings_json,
-                failed_chapters_json, schema_version, model_name, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                failed_chapters_json, schema_version, model_name, created_at,
+                parent_screenplay_id, optimization_origin, optimization_log_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 screenplay_id,
                 novel_id,
@@ -79,6 +83,9 @@ def save_screenplay(
                 schema_version,
                 model_name,
                 now,
+                parent_screenplay_id,
+                optimization_origin or "initial",
+                json.dumps(optimization_log, ensure_ascii=False) if optimization_log else None,
             ),
         )
         conn.commit()
@@ -95,6 +102,8 @@ def save_screenplay(
 
 def _row_to_dict(row) -> dict[str, Any]:
     """sqlite Row → 业务 dict,JSON 字段反序列化。"""
+    keys = row.keys() if hasattr(row, "keys") else []
+    opt_log_raw = row["optimization_log_json"] if "optimization_log_json" in keys else None
     return {
         "id": row["id"],
         "novel_id": row["novel_id"],
@@ -105,6 +114,9 @@ def _row_to_dict(row) -> dict[str, Any]:
         "schema_version": row["schema_version"],
         "model_name": row["model_name"],
         "created_at": row["created_at"],
+        "parent_screenplay_id": row["parent_screenplay_id"] if "parent_screenplay_id" in keys else None,
+        "optimization_origin": row["optimization_origin"] if "optimization_origin" in keys else "initial",
+        "optimization_log": json.loads(opt_log_raw) if opt_log_raw else None,
     }
 
 
@@ -113,8 +125,7 @@ def get_latest_screenplay(novel_id: str) -> dict | None:
     conn = get_connection()
     try:
         cur = conn.execute(
-            """SELECT id, novel_id, yaml_text, stats_json, warnings_json,
-                      failed_chapters_json, schema_version, model_name, created_at
+            """SELECT *
                FROM screenplays
                WHERE novel_id = ?
                ORDER BY created_at DESC
@@ -134,8 +145,7 @@ def get_screenplay_by_id(screenplay_id: str) -> dict | None:
     conn = get_connection()
     try:
         cur = conn.execute(
-            """SELECT id, novel_id, yaml_text, stats_json, warnings_json,
-                      failed_chapters_json, schema_version, model_name, created_at
+            """SELECT *
                FROM screenplays
                WHERE id = ?""",
             (screenplay_id,),
@@ -148,6 +158,42 @@ def get_screenplay_by_id(screenplay_id: str) -> dict | None:
         conn.close()
 
 
+def list_versions_for_novel(novel_id: str) -> list[dict]:
+    """返指定 novel 的所有版本(紧凑信息,不含 yaml_text 全文)— 给版本切换 UI 用。
+
+    每条含:id, parent_screenplay_id, optimization_origin, created_at,
+    + 摘要(scene_count + total_pages_estimate 从 stats 算)+ change_log 摘要。
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """SELECT id, parent_screenplay_id, optimization_origin,
+                      optimization_log_json, stats_json, created_at
+               FROM screenplays
+               WHERE novel_id = ?
+               ORDER BY created_at ASC""",
+            (novel_id,),
+        )
+        out: list[dict] = []
+        for row in cur.fetchall():
+            stats = json.loads(row["stats_json"] or "{}")
+            opt_log = json.loads(row["optimization_log_json"] or "null") if row["optimization_log_json"] else None
+            out.append({
+                "id": row["id"],
+                "parent_screenplay_id": row["parent_screenplay_id"],
+                "origin": row["optimization_origin"] or "initial",
+                "created_at": row["created_at"],
+                "scene_count": stats.get("total_scenes", 0),
+                "change_count": len(opt_log.get("change_log", [])) if opt_log else 0,
+                "reasoning_snippet": (opt_log.get("reasoning", "") if opt_log else "")[:80],
+                # PR#16 Hot1:前端版本树展开"上次优化记录"需完整 log
+                "optimization_log": opt_log,
+            })
+        return out
+    finally:
+        conn.close()
+
+
 def list_screenplays(novel_id: str) -> list[dict]:
     """返指定 novel 的所有 compose 记录,按 created_at 倒序(最新在前)。
 
@@ -156,8 +202,7 @@ def list_screenplays(novel_id: str) -> list[dict]:
     conn = get_connection()
     try:
         cur = conn.execute(
-            """SELECT id, novel_id, yaml_text, stats_json, warnings_json,
-                      failed_chapters_json, schema_version, model_name, created_at
+            """SELECT *
                FROM screenplays
                WHERE novel_id = ?
                ORDER BY created_at DESC""",

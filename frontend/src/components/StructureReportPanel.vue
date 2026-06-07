@@ -5,10 +5,15 @@
  * SVG 张力曲线 + 三幕分区背景 + 关键节点标记。
  * 顶部入口可折叠。
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 
 import { useScreenplayStore } from "../stores/screenplay";
-import type { TensionPoint } from "../types/screenplay";
+import type { OptimizeScope, TensionPoint } from "../types/screenplay";
+
+// 从父组件 ScreenplayEditorView 注入"打开优化弹窗"方法
+const openOptimization = inject<
+  (scope: OptimizeScope, sceneId?: string) => void
+>("openOptimizationModal", () => {});
 
 const store = useScreenplayStore();
 const collapsed = ref<boolean>(false);
@@ -193,20 +198,25 @@ const beatMarkers = computed<BeatMarker[]>(() => {
   return out;
 });
 
-// 鼠标悬停
+// 鼠标悬停 — 只显示 tooltip 数据,不跳转 scene(用户反馈)
 const hoverIndex = ref<number | null>(null);
 
 function handleHover(i: number) {
   hoverIndex.value = i;
-  // 同步选中右栏 scene
-  const p = points.value[i];
-  if (p) {
-    store.selectScene(p.scene_id);
-  }
+  // 注:hover 仅展示 tooltip,不自动 selectScene
+  // 跳转需要用户主动点击数据点(handleClick)
 }
 
 function handleLeave() {
   hoverIndex.value = null;
+}
+
+function handleClick(i: number) {
+  // 点击才同步选中右栏 scene(明确的用户意图)
+  const p = points.value[i];
+  if (p) {
+    store.selectScene(p.scene_id);
+  }
 }
 
 const hoverPoint = computed(() =>
@@ -343,12 +353,13 @@ function toggle() {
             stroke-linecap="round"
           />
 
-          <!-- 数据点(可 hover)-->
+          <!-- 数据点(hover 看数据 / 点击跳转 scene)-->
           <g class="data-points">
             <g
               v-for="(p, i) in points"
               :key="p.scene_id"
               @mouseenter="handleHover(i)"
+              @click="handleClick(i)"
             >
               <!-- 透明 hit area -->
               <circle
@@ -449,6 +460,19 @@ function toggle() {
           {{ n }}
         </li>
       </ul>
+
+      <!-- B 入口:整本重排 (PR#16) -->
+      <div class="optimize-cta">
+        <button
+          class="optimize-b-btn"
+          @click="openOptimization('full_screenplay')"
+          :disabled="store.optimizingState === 'running'"
+          title="委托 AI 通读全本,按诊断重排"
+        >
+          <span class="b-btn-main">整本重排</span>
+          <span class="b-btn-hint">委托 AI 按诊断重写</span>
+        </button>
+      </div>
     </div>
   </section>
 </template>
@@ -466,13 +490,9 @@ function toggle() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.06),
-    rgba(139, 92, 246, 0.02)
-  );
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-soft);
 }
 .structure-panel.collapsed .panel-header {
   border-bottom: none;
@@ -480,26 +500,29 @@ function toggle() {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   color: var(--accent);
 }
 .header-left h3 {
-  font-size: 12.5px;
+  font-family: var(--font-serif);
+  font-size: 14px;
   margin: 0;
-  color: var(--text);
-  font-weight: 600;
+  color: var(--text-strong);
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 .health-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 1px 10px;
+  border-radius: 12px;
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 500;
   border: 1px solid;
   background: transparent;
+  letter-spacing: 0.04em;
 }
 .health-score {
   font-variant-numeric: tabular-nums;
@@ -605,6 +628,48 @@ function toggle() {
 }
 
 /* === Notes === */
+/* B 入口 — 整本重排按钮 */
+.optimize-cta {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: center;
+}
+.optimize-b-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.optimize-b-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: white;
+}
+.optimize-b-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.b-btn-main {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+.b-btn-hint {
+  font-size: 10px;
+  opacity: 0.7;
+  letter-spacing: 0.06em;
+  font-family: var(--font-sans);
+}
+
 .notes-list {
   list-style: none;
   margin: 12px 0 0;

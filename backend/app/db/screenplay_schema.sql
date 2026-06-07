@@ -26,3 +26,20 @@ CREATE TABLE IF NOT EXISTS screenplays (
 -- 查询模式:GET /novels/{id}/screenplay 取最新一条 → 按 (novel_id, created_at DESC)
 CREATE INDEX IF NOT EXISTS idx_screenplays_novel_time
     ON screenplays(novel_id, created_at DESC);
+
+-- ============================================================
+-- 优化版本树(PR#16)
+-- ============================================================
+-- 用户对剧本做的每一次 AI 优化(整本 / 单场)都新建一行,parent_screenplay_id
+-- 指向上一版,形成版本树:V1 → V2 → V3 ... 或 V1 → V2 → V3, V1 → V4(分叉)。
+-- optimization_origin 标注本版本的来源(initial / single_scene_<id> / full_screenplay)。
+-- optimization_log_json 存本次优化的 change_log + reasoning。
+-- ============================================================
+
+-- SQLite 不支持简单的 IF NOT EXISTS 加列,用 PRAGMA 检测 + ALTER
+-- 在 connection.py 的 init_db 流程里,本文件被 executescript 调用 — 失败会被吞
+-- 但 ADD COLUMN 没有 IF NOT EXISTS,所以下面用幂等的手法:CREATE TABLE 兜底建好,
+-- 已存在则下面 ALTER 失败也无影响(由 connection.py 包裹 try-except 处理)。
+-- 这里采用 SQL 注释表明字段意图,实际加列通过 migration runner 处理。
+
+-- 占位:实际 ALTER 由 ensure_migrations() 走幂等检测加列(见 connection.py)

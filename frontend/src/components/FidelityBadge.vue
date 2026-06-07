@@ -27,7 +27,11 @@ const levelFull = computed(() => {
 
 const scorePercent = computed(() => {
   if (typeof props.fidelity.score !== "number") return null;
-  return Math.round(props.fidelity.score * 100);
+  // 兼容兜底:历史 V4/V5 yaml 数据 score 已经是 0-100(旧 bug)
+  // 新 V6+ 数据 score 是 0-1(标准)
+  return props.fidelity.score > 1
+    ? Math.round(props.fidelity.score)
+    : Math.round(props.fidelity.score * 100);
 });
 
 // 维度中文标签
@@ -40,6 +44,11 @@ const dimLabel: Record<string, string> = {
 
 function dimDisplay(name: string): string {
   return dimLabel[name] ?? name;
+}
+
+// 兼容兜底:历史数据可能 score 已经是 0-100,新数据是 0-1
+function normalizeScorePercent(score: number): number {
+  return score > 1 ? Math.round(score) : Math.round(score * 100);
 }
 
 function dimColor(score: number): string {
@@ -95,12 +104,12 @@ function close() { hover.value = false; }
               <div
                 class="dim-fill"
                 :style="{
-                  width: Math.round(dim.score * 100) + '%',
-                  background: dimColor(dim.score),
+                  width: normalizeScorePercent(dim.score) + '%',
+                  background: dimColor(dim.score > 1 ? dim.score / 100 : dim.score),
                 }"
               ></div>
             </div>
-            <div class="dim-score">{{ Math.round(dim.score * 100) }}</div>
+            <div class="dim-score">{{ normalizeScorePercent(dim.score) }}</div>
             <div v-if="dim.reason" class="dim-reason">{{ dim.reason }}</div>
           </li>
         </ul>

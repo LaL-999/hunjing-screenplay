@@ -56,6 +56,7 @@ class ScreenplayElement:
     character_name: str | None = None    # dialogue / voiceover 必填
     parenthetical: str | None = None     # dialogue 可选(表演提示)
     is_inner_monologue: bool = False     # voiceover 专用
+    voice_source: str = "VO"             # voiceover 专用:VO=画外音 / OS=画外音效(PR#16 升级 3)
 
 
 @dataclass
@@ -244,12 +245,18 @@ def _parse_and_validate_elements(
             )
         else:  # voiceover
             inner = bool(raw.get("is_inner_monologue", False))
+            voice_source_raw = str(raw.get("voice_source", "VO")).strip().upper()
+            voice_source = voice_source_raw if voice_source_raw in ("VO", "OS") else "VO"
+            # O.S. 类型的不应该是内心独白
+            if voice_source == "OS":
+                inner = False
             out.append(
                 ScreenplayElement(
                     type="voiceover",
                     text=text,
                     character_name=canonical,
                     is_inner_monologue=inner,
+                    voice_source=voice_source,
                 )
             )
 

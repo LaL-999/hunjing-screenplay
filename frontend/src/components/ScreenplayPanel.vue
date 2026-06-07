@@ -9,16 +9,22 @@
  *   - parenthetical: 小括号灰字
  *   - voiceover   : 角色名 + (V.O.) + 内容
  */
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, inject, nextTick, ref, watch } from "vue";
 
 import FidelityBadge from "./FidelityBadge.vue";
 import StructureReportPanel from "./StructureReportPanel.vue";
 import { useScreenplayStore } from "../stores/screenplay";
 import type {
   AdaptationDecision,
+  OptimizeScope,
   Scene,
   ScreenplayElement,
 } from "../types/screenplay";
+
+// 从父组件注入"打开优化弹窗"方法(A 入口)
+const openOptimization = inject<
+  (scope: OptimizeScope, sceneId?: string) => void
+>("openOptimizationModal", () => {});
 
 const store = useScreenplayStore();
 const scrollRoot = ref<HTMLElement | null>(null);
@@ -92,6 +98,27 @@ watch(
             {{ scene.heading.int_ext }}. {{ locationName(scene.heading.location_id) }} —
             {{ scene.heading.time_of_day }}
           </span>
+          <!-- A 入口:AI 优化此场(PR#16) -->
+          <button
+            class="optimize-a-btn"
+            :disabled="store.optimizingState === 'running'"
+            title="让 AI 重写此场,针对保真度诊断"
+            @click.stop="openOptimization('single_scene', scene.id)"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
+            </svg>
+            AI 优化
+          </button>
           <FidelityBadge
             v-if="scene.fidelity"
             :fidelity="scene.fidelity"
@@ -118,15 +145,19 @@ watch(
             <p v-else-if="el.type === 'parenthetical'" class="el el-paren">
               ({{ el.text }})
             </p>
-            <!-- voiceover -->
+            <!-- voiceover — 区分 V.O. / O.S. (PR#16 升级 3) -->
             <div v-else-if="el.type === 'voiceover'" class="el el-vo">
               <div class="d-character">
-                {{ characterName(el.character_id) }} <span class="vo-tag">(V.O.)</span>
+                {{ characterName(el.character_id) }}
+                <span
+                  class="vo-tag"
+                  :class="el.voice_source === 'OS' ? 'vo-tag-os' : 'vo-tag-vo'"
+                >({{ el.voice_source === 'OS' ? 'O.S.' : 'V.O.' }})</span>
                 <span
                   v-if="elementHasDecision(scene.id, el)"
                   class="decision-badge"
-                  title="该元素有改编决策待选"
-                >★</span>
+                  title="有改编决策待选"
+                >改编</span>
               </div>
               <div class="d-text">{{ el.text }}</div>
             </div>
@@ -147,64 +178,95 @@ watch(
 
 <style scoped>
 .screenplay-panel {
-  font-family: "Courier Prime", ui-monospace, "Courier New", monospace;
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: 14px;
   color: var(--text);
 }
 
+/* === SCENE 卡 — 剧本印刷气质 === */
 .scene-card {
   background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin-bottom: 14px;
-  transition: all 180ms;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-5);
+  transition: all var(--transition-base);
+  cursor: pointer;
 }
 .scene-card:hover {
-  border-color: rgba(139, 92, 246, 0.25);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--border);
+}
+.scene-card:hover .optimize-a-btn {
+  opacity: 1;
 }
 .scene-card.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+  background: var(--card-bg-strong);
 }
 
+/* SCENE 头 — 剧本印刷格式 */
 .scene-header {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-bottom: 6px;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
 }
-.scene-fidelity {
-  margin-left: auto;
-}
+
 .scene-no {
-  font-size: 10.5px;
-  color: var(--accent);
-  letter-spacing: 0.1em;
-  font-family: ui-monospace, monospace;
-  padding: 2px 8px;
-  background: rgba(139, 92, 246, 0.1);
-  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.18em;
+  font-weight: 500;
 }
 .scene-heading-text {
-  font-size: 12px;
-  color: var(--text);
-  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-strong);
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+/* A 入口 — AI 优化此场按钮(hover 时显现) */
+.optimize-a-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 10.5px;
+  font-family: var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0;     /* hover scene 时 才显现 */
+}
+.optimize-a-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.optimize-a-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .scene-summary {
-  font-family:
-    -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 12px;
+  font-family: var(--font-serif);
+  font-size: 14px;
   font-style: italic;
-  color: var(--text-muted);
-  margin: 4px 0 12px;
-  line-height: 1.6;
-  padding-left: 8px;
-  border-left: 2px solid var(--border);
+  color: var(--text-secondary);
+  margin: var(--space-3) 0 var(--space-4);
+  line-height: 1.8;
+  letter-spacing: 0.01em;
 }
 
 .scene-body {
@@ -212,85 +274,101 @@ watch(
 }
 
 .el {
-  margin: 8px 0;
+  margin: var(--space-3) 0;
 }
 
+/* ACTION — 段落式,衬线字体最易读 */
 .el-action {
-  font-family:
-    -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 13px;
-  line-height: 1.7;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.85;
   color: var(--text);
+  letter-spacing: 0.01em;
 }
 
+/* DIALOGUE / VOICEOVER — 行业标准居中缩进 */
 .el-dialogue,
 .el-vo {
-  margin: 14px auto;
+  margin: var(--space-5) auto;
   text-align: center;
-  max-width: 78%;
+  max-width: 70%;
 }
 .d-character {
+  font-family: var(--font-mono);
   font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--text);
-  margin-bottom: 2px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-strong);
+  text-transform: uppercase;
+  margin-bottom: var(--space-1);
 }
 .vo-tag {
-  font-size: 10.5px;
-  color: var(--decision-voiceover);
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: 4px;
+  letter-spacing: 0.12em;
+}
+.vo-tag-vo {
+  color: var(--decision-voiceover);  /* 烟紫 — V.O. */
+}
+.vo-tag-os {
+  color: var(--decision-action);     /* 钢蓝 — O.S. */
 }
 .d-paren {
-  font-size: 11px;
+  font-family: var(--font-serif);
+  font-size: 12.5px;
   color: var(--text-muted);
   font-style: italic;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-1);
 }
 .d-text {
-  font-family:
-    -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 13px;
-  line-height: 1.7;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.8;
   color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 .el-paren {
   text-align: center;
-  font-size: 11.5px;
+  font-family: var(--font-serif);
+  font-size: 13px;
   color: var(--text-muted);
   font-style: italic;
 }
 
 .el-transition {
   text-align: right;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-weight: 500;
   font-size: 10.5px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   color: var(--text-muted);
-  margin: 12px 0;
+  margin: var(--space-4) 0;
 }
 
+/* 决策标识 — 改用细线下划替代闪烁星 */
 .decision-badge {
   display: inline-block;
   margin-left: 6px;
-  color: var(--accent);
-  font-size: 12px;
-  animation: starpulse 2.4s ease-in-out infinite;
-}
-@keyframes starpulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
+  color: var(--decision-voiceover);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1px;
+  opacity: 0.7;
 }
 
 .scene-transition {
-  margin-top: 14px;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
   text-align: right;
+  font-family: var(--font-mono);
   font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   color: var(--text-muted);
-  font-family: ui-monospace, monospace;
 }
 
 .empty {
@@ -301,6 +379,8 @@ watch(
   color: var(--text-muted);
 }
 .empty-text {
-  font-size: 13px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-style: italic;
 }
 </style>

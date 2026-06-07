@@ -279,7 +279,12 @@
         "id": { "type": "string", "pattern": "^el_\\d{3,5}_\\d{3,5}$" },
         "character_id": { "type": "string", "pattern": "^char_\\d{3,5}$" },
         "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
-        "adaptation_note": { "type": "string", "maxLength": 500 }
+        "adaptation_note": { "type": "string", "maxLength": 500 },
+        "voice_source": {
+          "type": "string",
+          "enum": ["VO", "OS"],
+          "description": "VO = 画外音(内心独白/旁白后期配)/ OS = 画外音效(角色在场但镜头外现场录)"
+        }
       }
     },
 
@@ -324,7 +329,7 @@
         },
         "chosen": {
           "type": "string",
-          "enum": ["voiceover", "action_externalize", "delete"]
+          "enum": ["voiceover", "action_externalize", "subtext", "symbolism", "delete"]
         },
         "chosen_at": { "type": "string", "format": "date-time" }
       }
@@ -337,7 +342,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["voiceover", "action_externalize", "delete"]
+          "enum": ["voiceover", "action_externalize", "subtext", "symbolism", "delete"]
         },
         "text": { "type": "string" },
         "pros": { "type": "string", "maxLength": 200 },

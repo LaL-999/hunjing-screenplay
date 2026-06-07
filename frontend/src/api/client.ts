@@ -7,7 +7,10 @@
 import type {
   ComposeResponse,
   NovelInfo,
+  OptimizeRequest,
+  OptimizeResponse,
   ScreenplayResponse,
+  ScreenplayVersion,
   StructureReport,
 } from "../types/screenplay";
 
@@ -172,6 +175,37 @@ export async function getStructureReport(
   screenplayId: string,
 ): Promise<StructureReport> {
   return request(`/screenplays/${encodeURIComponent(screenplayId)}/structure`);
+}
+
+// ============================================================
+// 优化 + 版本(PR#16)
+// ============================================================
+
+/**
+ * 调用人机协作优化引擎(A 单场 / B 整本共用)。
+ * 后端会跑 LLM → 存为新版本(parent 指向当前)→ 返新 id + change_log。
+ */
+export async function optimizeScreenplay(
+  screenplayId: string,
+  req: OptimizeRequest,
+): Promise<OptimizeResponse> {
+  return request(`/screenplays/${encodeURIComponent(screenplayId)}/optimize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+}
+
+/**
+ * 列出该 novel 的所有剧本版本(初始版 + 所有优化分支)。
+ */
+export async function listScreenplayVersions(
+  novelId: string,
+): Promise<ScreenplayVersion[]> {
+  const r = await request<{ items: ScreenplayVersion[] }>(
+    `/novels/${encodeURIComponent(novelId)}/versions`,
+  );
+  return r.items ?? [];
 }
 
 // ============================================================

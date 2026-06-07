@@ -95,28 +95,27 @@ function onDragLeave() {
     <div v-if="isUploading" class="upload-state">
       <svg
         class="spinner"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      >
+        <path d="M21 12a9 9 0 11-6.219-8.56" />
+      </svg>
+      <div class="upload-text literary">正在拆解章节…</div>
+    </div>
+
+    <div v-else class="upload-state">
+      <svg
         width="32"
         height="32"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-      >
-        <path d="M21 12a9 9 0 11-6.219-8.56" />
-      </svg>
-      <div class="upload-text">解析中...</div>
-      <div class="upload-hint">服务器正在分章节、抽段落</div>
-    </div>
-
-    <div v-else class="upload-state">
-      <svg
-        width="36"
-        height="36"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
+        stroke-width="1.2"
         stroke-linecap="round"
         stroke-linejoin="round"
       >
@@ -124,10 +123,10 @@ function onDragLeave() {
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
-      <div class="upload-text">
-        <strong>点击选择</strong>或拖拽小说文件
+      <div class="upload-text literary">
+        拖入小说,或<button class="text-btn">点此选择</button>
       </div>
-      <div class="upload-hint">支持 .txt / .epub / .docx,最大 {{ MAX_MB }}MB</div>
+      <div class="upload-hint">.txt · .epub · .docx · ≤ {{ MAX_MB }}MB</div>
     </div>
 
     <div v-if="errorMsg" class="upload-error">{{ errorMsg }}</div>
@@ -136,68 +135,78 @@ function onDragLeave() {
 
 <style scoped>
 .upload-card {
-  border: 2px dashed var(--border);
-  border-radius: 10px;
-  padding: 28px 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7) var(--space-5);
   text-align: center;
   cursor: pointer;
   background: var(--card-bg);
-  transition: border-color 150ms, background 150ms, transform 150ms;
-  margin-bottom: 16px;
+  transition: all var(--transition-base);
 }
 
 .upload-card:hover {
   border-color: var(--accent);
-  background: var(--hover-bg);
+  background: var(--accent-soft);
 }
 
 .upload-card.dragging {
   border-color: var(--accent);
-  background: rgba(139, 92, 246, 0.08);
-  transform: scale(1.01);
+  border-style: solid;
+  background: var(--accent-soft);
 }
 
 .upload-card.uploading {
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 .upload-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   color: var(--text-muted);
 }
 .upload-state svg {
   color: var(--accent);
+  opacity: 0.65;
 }
 
 .upload-text {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--text);
+  letter-spacing: 0.02em;
 }
-.upload-text strong {
+.text-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
   color: var(--accent);
-  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px solid currentColor;
+  margin-left: 2px;
 }
 
 .upload-hint {
   font-size: 11px;
   color: var(--text-muted);
+  letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+  text-transform: lowercase;
 }
 
 .upload-error {
-  margin-top: 10px;
-  padding: 6px 10px;
-  background: rgba(239, 68, 68, 0.08);
-  border-radius: 6px;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--danger-soft);
+  border-radius: var(--radius-md);
   color: var(--danger);
   font-size: 11.5px;
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 1.2s linear infinite;
 }
 
 @keyframes spin {

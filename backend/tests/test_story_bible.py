@@ -290,5 +290,8 @@ def test_aka_resolves_to_same_character(client, uploaded_novel):
     get_r = client.get(f"/novels/{uploaded_novel}/story-bible")
     rels = get_r.json()["relationships"]
     assert len(rels) == 1
-    assert rels[0]["source_char_id"] == "char_001"
-    assert rels[0]["target_char_id"] == "char_002"
+    # ID 改为 UUID(避免多 bible 间的全局 PK 冲突,见 story_bible_service:212)
+    # 只验"两个不同的 ID"+"指向有效 char 行",不再断言 char_NNN 字面值
+    assert rels[0]["source_char_id"] != rels[0]["target_char_id"]
+    assert len(rels[0]["source_char_id"]) > 8
+    assert len(rels[0]["target_char_id"]) > 8

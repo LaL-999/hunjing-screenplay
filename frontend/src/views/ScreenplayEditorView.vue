@@ -7,14 +7,17 @@
  *  - commit 3:改编决策 3 选项面板(差异化)
  *  - commit 4:触发 compose + 进度对话框
  */
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, provide, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import AdaptationDecisionPanel from "../components/AdaptationDecisionPanel.vue";
 import ComposeDialog from "../components/ComposeDialog.vue";
 import NovelTextPanel from "../components/NovelTextPanel.vue";
+import OptimizationModal from "../components/OptimizationModal.vue";
 import ScreenplayPanel from "../components/ScreenplayPanel.vue";
+import VersionSwitcher from "../components/VersionSwitcher.vue";
 import { useScreenplayStore } from "../stores/screenplay";
+import type { OptimizeScope } from "../types/screenplay";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -41,6 +44,26 @@ function openComposeDialog() {
 function closeComposeDialog() {
   composeDialogVisible.value = false;
 }
+
+// AI 优化弹窗(A + B 入口共用)
+const optimizationModalVisible = ref<boolean>(false);
+const optimizationScope = ref<OptimizeScope>("full_screenplay");
+const optimizationTargetScene = ref<string | undefined>(undefined);
+
+function openOptimizationModal(
+  scope: OptimizeScope,
+  targetSceneId?: string,
+) {
+  optimizationScope.value = scope;
+  optimizationTargetScene.value = targetSceneId;
+  optimizationModalVisible.value = true;
+}
+function closeOptimizationModal() {
+  optimizationModalVisible.value = false;
+}
+
+// 把 open 函数 provide 给子组件(StructureReportPanel / ScreenplayPanel 用)
+provide("openOptimizationModal", openOptimizationModal);
 
 // 路由变化时重新加载
 watch(
@@ -95,6 +118,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="topbar-right">
+        <VersionSwitcher v-if="store.hasScreenplay" />
         <button
           class="primary-btn"
           :disabled="
@@ -103,20 +127,6 @@ onMounted(() => {
           "
           @click="openComposeDialog"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4-6.3-4.6-6.3 4.6L8 14l-6-4.6h7.6z"
-            />
-          </svg>
           {{ store.hasScreenplay ? "重新生成" : "生成剧本" }}
         </button>
       </div>
@@ -127,8 +137,10 @@ onMounted(() => {
       <!-- 左栏:原文 -->
       <section class="pane pane-left">
         <div class="pane-header">
-          <h3>原文</h3>
-          <span class="pane-hint">{{ store.novelChapters.length }} 章 · 选中 scene 自动定位段落</span>
+          <h3>
+            原文
+            <span class="pane-stat">{{ store.novelChapters.length }} 章</span>
+          </h3>
         </div>
         <div class="pane-body">
           <NovelTextPanel />
@@ -141,11 +153,12 @@ onMounted(() => {
       <!-- 右栏:剧本 -->
       <section class="pane pane-right">
         <div class="pane-header">
-          <h3>剧本</h3>
-          <span v-if="store.hasScreenplay" class="pane-hint">
-            scene_001 ~ scene_{{ String(store.totalScenes).padStart(3, "0") }} · 点击切换焦点
-          </span>
-          <span v-else class="pane-hint">未生成 — 点击右上「生成剧本」</span>
+          <h3>
+            剧本
+            <span v-if="store.hasScreenplay" class="pane-stat">
+              {{ store.totalScenes }} 场
+            </span>
+          </h3>
         </div>
         <div class="pane-body">
           <div v-if="!store.hasScreenplay" class="placeholder">
@@ -182,6 +195,14 @@ onMounted(() => {
       :visible="composeDialogVisible"
       @close="closeComposeDialog"
     />
+
+    <!-- ===== AI 优化弹窗(A + B 共用,PR#16) ===== -->
+    <OptimizationModal
+      :visible="optimizationModalVisible"
+      :scope="optimizationScope"
+      :target-scene-id="optimizationTargetScene"
+      @close="closeOptimizationModal"
+    />
   </div>
 </template>
 
@@ -194,32 +215,37 @@ onMounted(() => {
   color: var(--text);
 }
 
-/* ===== 顶栏 ===== */
+/* ===== 顶栏 — 更轻、更文气 ===== */
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
+  padding: var(--space-4) var(--space-6);
   background: var(--card-bg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   flex-shrink: 0;
 }
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-4);
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 .back-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-muted);
-  transition: all 120ms;
+  transition: all var(--transition-fast);
 }
 .back-btn:hover {
   background: var(--hover-bg);
@@ -231,33 +257,38 @@ onMounted(() => {
   gap: 2px;
 }
 .novel-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-strong);
+  letter-spacing: 0.01em;
 }
 .status-line {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-muted);
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
+  letter-spacing: 0.04em;
 }
 .status-pill {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 1px 8px;
   border-radius: 10px;
   font-size: 10.5px;
   font-weight: 500;
+  letter-spacing: 0.02em;
 }
 .status-pill--muted {
-  background: var(--hover-bg);
+  background: var(--code-bg);
   color: var(--text-muted);
 }
 .status-pill--success {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--success-soft);
   color: var(--success);
 }
 .status-pill--danger {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -265,20 +296,21 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
-  border-radius: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: white;
   border: none;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  transition: all 120ms;
+  letter-spacing: 0.04em;
+  transition: all var(--transition-fast);
 }
 .primary-btn:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 .primary-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -299,32 +331,40 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-soft);
   background: var(--card-bg);
   flex-shrink: 0;
 }
 .pane-header h3 {
   margin: 0;
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
 }
-.pane-hint {
-  font-size: 11px;
+.pane-stat {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
   color: var(--text-muted);
+  letter-spacing: 0.06em;
+  font-weight: 400;
+  text-transform: lowercase;
+  opacity: 0.7;
 }
 .pane-body {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 20px;
+  padding: var(--space-5) var(--space-6);
 }
 
 .divider {
   width: 1px;
-  background: var(--border);
+  background: var(--border-soft);
   flex-shrink: 0;
 }
 
@@ -339,16 +379,19 @@ onMounted(() => {
   color: var(--text-muted);
 }
 .placeholder-icon {
-  margin-bottom: 12px;
-  opacity: 0.4;
+  margin-bottom: var(--space-3);
+  opacity: 0.3;
 }
 .placeholder-text {
-  font-size: 13px;
-  line-height: 1.6;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text-secondary);
 }
 .placeholder-hint {
   font-size: 11.5px;
   color: var(--text-muted);
-  opacity: 0.7;
+  margin-top: var(--space-2);
+  letter-spacing: 0.04em;
 }
 </style>

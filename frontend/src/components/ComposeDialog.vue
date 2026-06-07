@@ -25,6 +25,70 @@ const refineDialogue = ref<boolean>(true);
 const proposeDecisions = ref<boolean>(true);
 const maxChapters = ref<number | null>(null);
 
+// 动态估时 — 基于实际 LLM 调用次数 + 经验性的单次耗时
+// 经验数据(deepseek-chat / 中文长 prompt):
+//   scene_splitter: ~25 秒/章
+//   element_extractor: ~30 秒/章(假定每章约 1.5 场景)
+//   dialogue_attributor(PR#8 可选): ~25 秒/章
+//   adaptation_decision(PR#9 可选): ~35 秒/章
+//   故事圣经抽取: ~30 秒 一次性
+const totalChapters = computed(() => store.novelChapters?.length ?? 0);
+const effectiveChapters = computed(() => {
+  if (maxChapters.value && maxChapters.value > 0) {
+    return Math.min(maxChapters.value, totalChapters.value);
+  }
+  return totalChapters.value;
+});
+
+// 精确估时 — 返秒数
+const estimateSeconds = computed(() => {
+  const chs = effectiveChapters.value;
+  if (chs === 0) return 0;
+  // 一次性开销:故事圣经抽取 + 最终组装
+  let baseline = 30;
+  // 每章必跑:scene_splitter + element_extractor
+  let perCh = 25 + 30;
+  if (refineDialogue.value) perCh += 25;    // PR#8
+  if (proposeDecisions.value) perCh += 35;   // PR#9
+  return baseline + chs * perCh;
+});
+
+// 文案版估时
+const estimateMinutes = computed(() => {
+  const total = estimateSeconds.value;
+  if (total === 0) return "—";
+  if (total < 90) return `约 ${total} 秒`;
+  const mins = Math.round(total / 60);
+  return `约 ${mins} 分钟`;
+});
+
+const isLargeNovel = computed(() => totalChapters.value > 5);
+
+// banner 用 — 跑完整本要多久
+const fullNovelEstimateLabel = computed(() => {
+  const chs = totalChapters.value;
+  if (chs === 0) return "—";
+  let baseline = 30;
+  let perCh = 25 + 30;
+  if (refineDialogue.value) perCh += 25;
+  if (proposeDecisions.value) perCh += 35;
+  const total = baseline + chs * perCh;
+  if (total < 90) return `约 ${total} 秒`;
+  const mins = Math.round(total / 60);
+  return `约 ${mins} 分钟`;
+});
+
+// 大小说自动建议 max_chapters
+watch(
+  totalChapters,
+  (n) => {
+    if (n > 5 && maxChapters.value === null) {
+      maxChapters.value = 3;
+    }
+  },
+  { immediate: true },
+);
+
 const stage = computed(() => {
   if (store.loadingState === "composing") return "composing";
   if (store.loadingState === "error" && store.lastError) return "error";
@@ -49,18 +113,58 @@ watch(
   },
 );
 
+// 进度文案 — 按实际进度比例划分阶段(不是写死秒数)
 const progressLabel = computed(() => {
-  const t = elapsed.value;
-  if (t < 5) return "正在准备 LLM 流水线...";
-  if (t < 15) return "故事圣经 + 章节切分中...";
-  if (t < 35) return "逐场抽元素 + 对白归属精修...";
-  if (t < 60) return "改编决策建议生成中...";
-  return "组装 YAML + 校验...";
+  const ratio = estimateSeconds.value > 0 ? elapsed.value / estimateSeconds.value : 0;
+  if (ratio < 0.05) return "正在准备 LLM 流水线…";
+  if (ratio < 0.15) return "提取故事圣经…";
+  if (ratio < 0.45) return "切分场景 + 抽取元素…";
+  if (ratio < 0.75) {
+    if (refineDialogue.value) return "对白归属精修中…";
+    return "组装中…";
+  }
+  if (ratio < 0.95) {
+    if (proposeDecisions.value) return "生成改编决策建议…";
+    return "组装中…";
+  }
+  if (ratio < 1.1) return "组装 YAML + Schema 校验…";
+  return "LLM 比预估慢,请耐心等待…";
 });
 
+// 进度百分比 — 真实参照预估总时间
 const progressPercent = computed(() => {
-  // 估算 — 90s 上限给视觉上"还在动"的感觉
-  return Math.min(95, Math.round((elapsed.value / 90) * 100));
+  if (estimateSeconds.value === 0) return 0;
+  const ratio = elapsed.value / estimateSeconds.value;
+  if (ratio < 1) {
+    // 正常进度区间:0-90% 跟随实际时间
+    return Math.round(ratio * 90);
+  }
+  // 已超时:慢慢爬向 95%(每超 10 秒涨 1%)
+  const overflowSec = elapsed.value - estimateSeconds.value;
+  return Math.min(95, 90 + Math.floor(overflowSec / 10));
+});
+
+// 超时态判定
+const isOvertime = computed(
+  () => estimateSeconds.value > 0 && elapsed.value > estimateSeconds.value,
+);
+const overtimeRatio = computed(() => {
+  if (estimateSeconds.value === 0) return 1;
+  return elapsed.value / estimateSeconds.value;
+});
+
+// 顶部副标题 — 真实秒数 + 预估
+const composingSubtitle = computed(() => {
+  const sec = elapsed.value;
+  const est = estimateSeconds.value;
+  if (est === 0) return `${sec} 秒`;
+  if (sec <= est) {
+    return `${sec} 秒 · 预估总耗时 ${estimateMinutes.value}`;
+  }
+  // 超时态
+  const over = sec - est;
+  const pct = Math.round(overtimeRatio.value * 100);
+  return `${sec} 秒 · 已超预估 ${over} 秒 (${pct}%)`;
 });
 
 async function handleStart() {
@@ -109,7 +213,12 @@ function handleRetry() {
           <div class="d-head-text">
             <h3>{{ stage === "config" ? "生成剧本" : stage === "composing" ? "AI 编排中" : "生成失败" }}</h3>
             <p v-if="stage === 'config'">配置流水线选项,确认后开始</p>
-            <p v-else-if="stage === 'composing'">{{ elapsed }} 秒 · 总耗时约 1-2 分钟</p>
+            <p
+              v-else-if="stage === 'composing'"
+              :class="{ 'd-warn': isOvertime }"
+            >
+              {{ composingSubtitle }}
+            </p>
             <p v-else class="d-err">无法完成编排</p>
           </div>
           <button
@@ -137,6 +246,30 @@ function handleRetry() {
         <main class="d-body">
           <!-- 配置阶段 -->
           <div v-if="stage === 'config'" class="config-stage">
+            <!-- 大小说警告 banner -->
+            <div v-if="isLargeNovel" class="large-novel-banner">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <div class="lnb-text">
+                <strong>你的小说共 {{ totalChapters }} 章 · 完整跑预估 {{ fullNovelEstimateLabel }}</strong>
+                <div class="lnb-hint">
+                  已为你预设 <strong>仅跑前 3 章</strong> — 想全跑请把下方"章节数上限"清空。
+                </div>
+              </div>
+            </div>
+
             <label class="toggle-row">
               <div class="toggle-text">
                 <div class="t-title">对白归属精修</div>
@@ -152,7 +285,7 @@ function handleRetry() {
                   <span class="differentiation-pill">差异化</span>
                 </div>
                 <div class="t-hint">
-                  PR#9 内心独白 → V.O. / 动作外化 / 删除 3 备选
+                  内心独白 → V.O. / 动作外化 / 潜台词 / 意象化 / 删除 5 备选
                 </div>
               </div>
               <input v-model="proposeDecisions" type="checkbox" class="toggle" />
@@ -187,7 +320,8 @@ function handleRetry() {
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              预估耗时 30 - 90 秒(取决于章数 + LLM 响应延迟)
+              预估耗时:<strong>{{ estimateMinutes }}</strong>
+              <span class="est-detail">· 跑 {{ effectiveChapters }}/{{ totalChapters }} 章</span>
             </div>
           </div>
 
@@ -373,6 +507,10 @@ function handleRetry() {
 .d-head-text .d-err {
   color: var(--danger);
 }
+.d-head-text .d-warn {
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+}
 .d-close {
   width: 28px;
   height: 28px;
@@ -480,12 +618,62 @@ function handleRetry() {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-3);
   background: var(--bg);
-  border-radius: 6px;
-  font-size: 11.5px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+.estimate strong {
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+}
+.est-detail {
   color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 4px;
+  font-family: var(--font-mono);
+}
+
+/* 大小说警告 banner */
+.large-novel-banner {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  color: var(--warning);
+}
+.large-novel-banner svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.lnb-text {
+  flex: 1;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.lnb-text strong {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.lnb-hint {
+  margin-top: var(--space-1);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+.lnb-hint strong {
+  color: var(--accent-text);
 }
 
 /* === 进度阶段 === */

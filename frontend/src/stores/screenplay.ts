@@ -14,15 +14,22 @@ import {
   getChapterParagraphs,
   getLatestScreenplay,
   getNovel,
+  getScreenplayById,
   getStructureReport,
+  listScreenplayVersions,
+  optimizeScreenplay,
   type ComposeRequest,
 } from "../api/client";
 import type {
   AdaptationDecision,
+  AdaptationOptionType,
   ComposeWarning,
+  OptimizeRequest,
+  OptimizeResponse,
   Scene,
   Screenplay,
   ScreenplayElement,
+  ScreenplayVersion,
   StructureReport,
 } from "../types/screenplay";
 
@@ -46,6 +53,12 @@ export const useScreenplayStore = defineStore("screenplay", () => {
   // 结构报告(PR#13,按需加载)
   const structureReport = ref<StructureReport | null>(null);
   const structureLoading = ref<boolean>(false);
+
+  // 优化版本树(PR#16)
+  const versions = ref<ScreenplayVersion[]>([]);
+  const optimizingState = ref<"idle" | "running" | "done" | "error">("idle");
+  const lastOptimizeResult = ref<OptimizeResponse | null>(null);
+  const optimizeError = ref<string>("");
 
   // 当前选中的 scene(用于左右栏联动 + 改编决策面板)
   const selectedSceneId = ref<string | null>(null);
@@ -150,13 +163,13 @@ export const useScreenplayStore = defineStore("screenplay", () => {
   }
 
   /** 当前作者对每条决策的选择(本 PR 仅本地状态,不写后端)*/
-  const userDecisionChoices = ref<Map<string, "voiceover" | "action_externalize" | "delete">>(
+  const userDecisionChoices = ref<Map<string, AdaptationOptionType>>(
     new Map(),
   );
 
   function chooseAdaptationOption(
     decisionId: string,
-    type: "voiceover" | "action_externalize" | "delete",
+    type: AdaptationOptionType,
   ) {
     userDecisionChoices.value.set(decisionId, type);
     // 触发 reactivity
@@ -165,7 +178,7 @@ export const useScreenplayStore = defineStore("screenplay", () => {
 
   function getDecisionChoice(
     decisionId: string,
-  ): "voiceover" | "action_externalize" | "delete" | null {
+  ): AdaptationOptionType | null {
     return userDecisionChoices.value.get(decisionId) ?? null;
   }
 
@@ -214,8 +227,14 @@ export const useScreenplayStore = defineStore("screenplay", () => {
       failedChapters.value = r.failed_chapters;
       stats.value = r.stats;
       loadingState.value = "ready";
-      // 顺便拉结构报告(不阻塞主加载)
+      // 顺便拉结构报告 + 版本列表(不阻塞主加载)
       loadStructureReport();
+      // 拉完版本列表后,挂上"当前版本派生过的优化记录"
+      loadVersions().then(() => {
+        if (screenplayId.value) {
+          _attachChildOptimizationIfAny(screenplayId.value);
+        }
+      });
     } catch (e) {
       // 404 = 还没生成 → idle 不是 error
       if (e instanceof Error && e.message.includes("404")) {
@@ -241,6 +260,111 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     }
   }
 
+  /** 拉版本列表(无 LLM,快) */
+  async function loadVersions(): Promise<void> {
+    if (!novelId.value) return;
+    try {
+      versions.value = await listScreenplayVersions(novelId.value);
+    } catch {
+      versions.value = [];
+    }
+  }
+
+  /** 按 id 加载指定版本(切版本时用) */
+  async function switchToVersion(targetScreenplayId: string): Promise<void> {
+    loadingState.value = "loading";
+    try {
+      const r = await getScreenplayById(targetScreenplayId);
+      screenplayId.value = r.screenplay_id;
+      rawYaml.value = r.yaml;
+      const parsed = yaml.load(r.yaml) as Screenplay;
+      screenplay.value = parsed;
+      warnings.value = r.warnings;
+      failedChapters.value = r.failed_chapters;
+      stats.value = r.stats;
+      if (parsed?.scenes?.[0]) {
+        selectedSceneId.value = parsed.scenes[0].id;
+      }
+      loadingState.value = "ready";
+      // 切完版本立刻重拉结构报告(新版结构可能完全不同)
+      structureReport.value = null;
+      loadStructureReport();
+      // PR#16 Hot1:切版本后,把"该版本派生过的子版本优化记录"挂回 lastOptimizeResult
+      // — 让用户点 AI 优化时直接看到上次结果,而不是回到空白配置
+      _attachChildOptimizationIfAny(targetScreenplayId);
+    } catch (e) {
+      lastError.value = e instanceof Error ? e.message : String(e);
+      loadingState.value = "error";
+    }
+  }
+
+  /**
+   * 跑 AI 优化(A 单场 / B 整本共用)。
+   * 成功后:① loadVersions 更新版本树 ② 自动切到新版本 ③ 把 result 留给 modal 展示 change_log
+   */
+  async function runOptimize(req: OptimizeRequest): Promise<void> {
+    if (!screenplayId.value) return;
+    optimizingState.value = "running";
+    optimizeError.value = "";
+    lastOptimizeResult.value = null;
+    // C 修复:把作者已做的决策塞进 request 给 LLM 当输入参考
+    const userDecisionsObj: Record<string, AdaptationOptionType> = {};
+    userDecisionChoices.value.forEach((v, k) => {
+      userDecisionsObj[k] = v;
+    });
+    const enrichedReq: OptimizeRequest = {
+      ...req,
+      user_decisions: Object.keys(userDecisionsObj).length > 0 ? userDecisionsObj : undefined,
+    };
+    try {
+      const result = await optimizeScreenplay(screenplayId.value, enrichedReq);
+      // 拉新版本列表
+      await loadVersions();
+      // 自动切到新生成的版本(switchToVersion 内部可能调 _attachChildOptimizationIfAny 清掉 lastOptimizeResult)
+      await switchToVersion(result.new_screenplay_id);
+      // 必须放在 switchToVersion 之后,避免被切版本逻辑覆盖
+      lastOptimizeResult.value = result;
+      optimizingState.value = "done";
+    } catch (e) {
+      optimizeError.value = e instanceof Error ? e.message : String(e);
+      optimizingState.value = "error";
+    }
+  }
+
+  function clearOptimizeResult() {
+    lastOptimizeResult.value = null;
+    optimizingState.value = "idle";
+    optimizeError.value = "";
+  }
+
+  /** 切版本后,扫 versions 找当前版本派生的子版本,把它的 optimization_log 包装为 OptimizeResponse 挂回。
+   *  这样用户切回原版后再打开 modal,能继续看到上次的 change_log + reasoning。 */
+  function _attachChildOptimizationIfAny(currentVersionId: string) {
+    // 找直接子版本(parent === currentVersionId);如果有多个,取最新的
+    const children = versions.value
+      .filter((v) => v.parent_screenplay_id === currentVersionId && v.optimization_log)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    if (children.length === 0) {
+      lastOptimizeResult.value = null;
+      optimizingState.value = "idle";
+      return;
+    }
+    const child = children[0];
+    const log = child.optimization_log!;
+    // 包装为 OptimizeResponse 结构(供 OptimizationModal 复用)
+    lastOptimizeResult.value = {
+      new_screenplay_id: child.id,
+      parent_screenplay_id: currentVersionId,
+      origin: child.origin,
+      change_log: log.change_log || [],
+      reasoning: log.reasoning || "",
+      fallback_reason: log.fallback_reason ?? null,
+      llm_usage: {},
+    };
+    // 显式 done 态,这样 modal 一打开就是结果视图
+    optimizingState.value = "done";
+  }
+
   /** 触发编排(贵,30-60s)*/
   async function triggerCompose(
     targetNovelId: string,
@@ -262,8 +386,9 @@ export const useScreenplayStore = defineStore("screenplay", () => {
         selectedSceneId.value = parsed.scenes[0].id;
       }
       loadingState.value = "ready";
-      // 顺便拉结构报告
+      // 顺便拉结构报告 + 版本列表
       loadStructureReport();
+      loadVersions();
     } catch (e) {
       lastError.value = e instanceof Error ? e.message : String(e);
       loadingState.value = "error";
@@ -288,6 +413,11 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     userDecisionChoices,
     structureReport,
     structureLoading,
+    // 优化 + 版本(PR#16)
+    versions,
+    optimizingState,
+    lastOptimizeResult,
+    optimizeError,
     // computed
     selectedScene,
     selectedSceneElements,
@@ -304,5 +434,10 @@ export const useScreenplayStore = defineStore("screenplay", () => {
     loadLatestForNovel,
     triggerCompose,
     loadStructureReport,
+    // PR#16
+    loadVersions,
+    switchToVersion,
+    runOptimize,
+    clearOptimizeResult,
   };
 });

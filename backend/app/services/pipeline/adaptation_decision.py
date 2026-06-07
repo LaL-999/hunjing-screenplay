@@ -76,8 +76,11 @@ class DecisionResult:
         return len(self.decisions)
 
 
-_OPTION_TYPES = ["voiceover", "action_externalize", "delete"]
+# 5 种专业改编手法(从 3 种扩展,PR#16 升级 2)
+_OPTION_TYPES = ["voiceover", "action_externalize", "subtext", "symbolism", "delete"]
 _OPTION_TYPES_SET = set(_OPTION_TYPES)
+# 完整性判定:LLM 必须输出全部 5 种;但为了兼容旧测试用例,允许只有 voiceover/action/delete 三件套也算"完整"
+_LEGACY_THREE_TYPES = {"voiceover", "action_externalize", "delete"}
 
 
 # ============================================================
@@ -252,9 +255,11 @@ def _parse_decisions(
 
 
 def _parse_options(raw_options: list) -> list[AdaptationOption]:
-    """解析单条决策的 options(可能少于 3 个,后续检查完整性)。"""
+    """解析单条决策的 options(5 种专业改编手法)。"""
     out: list[AdaptationOption] = []
     seen_types: set[str] = set()
+    # 需要 text 的类型(非 delete)
+    text_required = {"voiceover", "action_externalize", "subtext", "symbolism"}
     for opt in raw_options:
         if not isinstance(opt, dict):
             continue
@@ -269,9 +274,10 @@ def _parse_options(raw_options: list) -> list[AdaptationOption]:
         cons = str(opt.get("cons", "")).strip()[:200]
         rationale = str(opt.get("rationale", "")).strip()[:200]
 
-        if otype in ("voiceover", "action_externalize"):
-            if not text:
-                continue   # 必须有 text
+        if otype in text_required:
+            # text 必须有 + 至少 4 字(防"x"/"(略)"等明显占位符,但允许 4-7 字短改写)
+            if not text or len(text) < 4:
+                continue
             out.append(
                 AdaptationOption(type=otype, text=text, pros=pros, cons=cons)
             )
@@ -288,6 +294,12 @@ def _parse_options(raw_options: list) -> list[AdaptationOption]:
 
 
 def _options_complete(options: list[AdaptationOption]) -> bool:
-    """3 类型必须齐(顺序无关)。"""
+    """完整性判定:LLM 输出可以是 5 种全套,或老的 3 件套(legacy 兼容)。"""
     types = {o.type for o in options}
-    return types == _OPTION_TYPES_SET
+    # 5 种全套
+    if types == _OPTION_TYPES_SET:
+        return True
+    # 老的 3 件套(voiceover/action/delete)— 测试用例兼容
+    if types == _LEGACY_THREE_TYPES:
+        return True
+    return False

@@ -277,10 +277,10 @@ def test_unknown_option_type_filtered(monkeypatch):
     bad_type = {
         "element_index": 3,
         "options": [
-            {"type": "voiceover", "text": "x", "pros": "y", "cons": "z"},
-            {"type": "action_externalize", "text": "a", "pros": "b", "cons": "c"},
+            {"type": "voiceover", "text": "保留主观叙述", "pros": "y", "cons": "z"},
+            {"type": "action_externalize", "text": "改为可见动作", "pros": "b", "cons": "c"},
             {"type": "delete", "rationale": "ok"},
-            {"type": "transformation", "text": "未来类型"},   # unknown
+            {"type": "transformation", "text": "未来类型占位"},   # unknown
         ],
         "recommended": "voiceover",
     }
@@ -299,9 +299,9 @@ def test_duplicate_option_type_first_wins(monkeypatch):
     dup = {
         "element_index": 3,
         "options": [
-            {"type": "voiceover", "text": "first", "pros": "a", "cons": "b"},
-            {"type": "voiceover", "text": "second", "pros": "x", "cons": "y"},   # 重复
-            {"type": "action_externalize", "text": "act", "pros": "x", "cons": "y"},
+            {"type": "voiceover", "text": "第一版改写文本", "pros": "a", "cons": "b"},
+            {"type": "voiceover", "text": "第二版改写文本", "pros": "x", "cons": "y"},   # 重复
+            {"type": "action_externalize", "text": "改为可见动作描写", "pros": "x", "cons": "y"},
             {"type": "delete", "rationale": "ok"},
         ],
         "recommended": "voiceover",
@@ -313,7 +313,7 @@ def test_duplicate_option_type_first_wins(monkeypatch):
     )
     assert result.decision_count() == 1
     vo_opt = next(o for o in result.decisions[0].options if o.type == "voiceover")
-    assert vo_opt.text == "first"   # 第一个胜
+    assert vo_opt.text == "第一版改写文本"   # 第一个胜
 
 
 def test_voiceover_missing_text_skipped(monkeypatch):
@@ -340,8 +340,8 @@ def test_delete_missing_rationale_uses_default(monkeypatch):
     no_rationale = {
         "element_index": 3,
         "options": [
-            {"type": "voiceover", "text": "x", "pros": "a", "cons": "b"},
-            {"type": "action_externalize", "text": "y", "pros": "c", "cons": "d"},
+            {"type": "voiceover", "text": "保留主观叙述的画外音", "pros": "a", "cons": "b"},
+            {"type": "action_externalize", "text": "改为可见动作描述", "pros": "c", "cons": "d"},
             {"type": "delete"},   # 缺 rationale
         ],
         "recommended": "voiceover",

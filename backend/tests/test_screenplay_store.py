@@ -213,6 +213,8 @@ def test_get_by_id_returns_full_dict(temp_db):
     expected_keys = {
         "id", "novel_id", "yaml_text", "stats", "warnings",
         "failed_chapters", "schema_version", "model_name", "created_at",
+        # PR#16 版本树字段
+        "parent_screenplay_id", "optimization_origin", "optimization_log",
     }
     assert set(got.keys()) == expected_keys
     assert got["id"] == sid

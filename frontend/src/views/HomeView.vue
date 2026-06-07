@@ -77,55 +77,19 @@ onMounted(() => {
 <template>
   <main class="home">
     <header class="hdr">
-      <h1>浑晶 · 剧创态</h1>
-      <p class="tagline">AI 小说自动转剧本 YAML · 浑晶平台第 5 态</p>
+      <div class="brand">浑晶</div>
+      <h1 class="title literary-heading">剧创态</h1>
+      <p class="tagline">小说 <span class="arrow">→</span> 剧本</p>
+      <p class="sub-tagline">浑晶平台 · 第五创作态</p>
     </header>
 
-    <section class="status-card">
-      <h2>后端服务状态</h2>
-      <template v-if="backendStatus === 'unknown'">
-        <div class="status-row">
-          <span class="dot dot--pending"></span>
-          <span>正在连接 backend...</span>
-        </div>
-      </template>
-      <template v-else-if="backendStatus === 'ok'">
-        <div class="status-row status-row--ok">
-          <span class="dot dot--ok"></span>
-          <span>已连接</span>
-          <span class="meta">v{{ backendInfo.version }} · LLM: {{ backendInfo.llm_model }}</span>
-        </div>
-        <div
-          v-if="backendInfo.llm_configured === false"
-          class="status-row status-row--warn"
-        >
-          <span class="dot dot--warn"></span>
-          <span>LLM API key 未配置</span>
-          <span class="meta">编辑 backend/.env</span>
-        </div>
-        <div v-else class="status-row status-row--ok">
-          <span class="dot dot--ok"></span>
-          <span>LLM 已配置</span>
-          <span class="meta">DeepSeek 凭据已加载</span>
-        </div>
-      </template>
-      <template v-else>
-        <div class="status-row status-row--err">
-          <span class="dot dot--err"></span>
-          <span>未连接 — {{ errorMsg }}</span>
-        </div>
-      </template>
-    </section>
-
+    <!-- 上传卡 — 直接醒目放最上 -->
     <NovelUploadCard @uploaded="handleUploaded" />
 
-    <section class="novels-card">
-      <h2>已上传的小说</h2>
-      <div v-if="novelsLoading" class="empty">加载中...</div>
-      <div v-else-if="novels.length === 0" class="empty">
-        还没有上传过小说 — 上面的上传卡拖一个 .txt / .epub / .docx 文件试试
-      </div>
-      <ul v-else class="novel-list">
+    <!-- 小说书架 -->
+    <section v-if="!novelsLoading && novels.length > 0" class="shelf">
+      <div class="shelf-title literary-heading">书架</div>
+      <ul class="novel-list">
         <li
           v-for="n in novels"
           :key="n.id"
@@ -133,10 +97,13 @@ onMounted(() => {
           @click="openEditor(n.id)"
         >
           <div class="novel-main">
-            <div class="novel-title">{{ n.title }}</div>
+            <div class="novel-title literary">{{ n.title }}</div>
             <div class="novel-meta">
-              {{ n.source_format }} · {{ n.total_chapters }} 章 ·
-              {{ n.total_chars.toLocaleString() }} 字
+              <span>{{ n.total_chapters }} 章</span>
+              <span class="meta-sep">·</span>
+              <span>{{ n.total_chars.toLocaleString() }} 字</span>
+              <span class="meta-sep">·</span>
+              <span class="meta-format">{{ n.source_format }}</span>
             </div>
           </div>
           <button
@@ -150,7 +117,7 @@ onMounted(() => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
+              stroke-width="1.5"
               stroke-linecap="round"
               stroke-linejoin="round"
             >
@@ -160,9 +127,38 @@ onMounted(() => {
               />
             </svg>
           </button>
-          <span class="open-arrow">→</span>
+          <span class="open-arrow">›</span>
         </li>
       </ul>
+    </section>
+
+    <p v-if="!novelsLoading && novels.length === 0" class="shelf-empty literary">
+      书架尚空 — 拖一份小说试试。
+    </p>
+
+    <!-- 系统状态(收到底部,不喧宾夺主) -->
+    <section class="status-line">
+      <template v-if="backendStatus === 'unknown'">
+        <span class="dot dot--pending"></span>
+        <span class="status-text">正在连接服务…</span>
+      </template>
+      <template v-else-if="backendStatus === 'ok'">
+        <span class="dot dot--ok"></span>
+        <span class="status-text">
+          后端就绪
+          <span class="status-meta">· {{ backendInfo.llm_model }}</span>
+          <span
+            v-if="backendInfo.llm_configured === false"
+            class="status-warn"
+          >
+            · LLM 未配置
+          </span>
+        </span>
+      </template>
+      <template v-else>
+        <span class="dot dot--err"></span>
+        <span class="status-text status-err">服务未连接 · {{ errorMsg }}</span>
+      </template>
     </section>
 
     <footer class="footer">
@@ -189,91 +185,77 @@ onMounted(() => {
   color: var(--text);
 }
 
+.home {
+  max-width: 640px;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-5);
+}
+
 .hdr {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: var(--space-7);
+  padding: var(--space-5) 0;
 }
-.hdr h1 {
-  font-size: 22px;
-  margin: 0 0 4px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.brand {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 0.32em;
+  margin-bottom: var(--space-3);
+  text-transform: none;
+}
+.title {
+  font-size: 38px;
+  margin: 0 0 var(--space-3);
+  font-weight: 500;
+  color: var(--text-strong);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 .tagline {
+  font-family: var(--font-serif);
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin: 0 0 var(--space-2);
+  letter-spacing: 0.12em;
+}
+.tagline .arrow {
+  display: inline-block;
+  margin: 0 var(--space-2);
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-size: 18px;
+  vertical-align: -1px;
+}
+.sub-tagline {
+  font-family: var(--font-sans);
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 11.5px;
   margin: 0;
+  letter-spacing: 0.16em;
 }
 
-.status-card,
-.novels-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 18px;
-  margin-bottom: 16px;
+/* === 书架 === */
+.shelf {
+  margin-top: var(--space-6);
+  padding: var(--space-5) 0;
 }
-.status-card h2,
-.novels-card h2 {
-  font-size: 11px;
-  font-weight: 600;
+.shelf-title {
+  font-size: 12px;
   color: var(--text-muted);
-  margin: 0 0 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.24em;
+  margin-bottom: var(--space-4);
+  padding-left: var(--space-2);
   text-transform: uppercase;
 }
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  padding: 4px 0;
-}
-.status-row + .status-row {
-  border-top: 1px dashed var(--border);
-  margin-top: 4px;
-  padding-top: 8px;
-}
-.status-row .meta {
+.shelf-empty {
+  text-align: center;
   color: var(--text-muted);
-  font-size: 11.5px;
-  margin-left: auto;
-  text-align: right;
-}
-.status-row--ok { color: var(--success); }
-.status-row--err { color: var(--danger); }
-.status-row--warn { color: var(--warning); margin-top: 6px; }
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot--ok { background: var(--success); }
-.dot--err { background: var(--danger); }
-.dot--warn { background: var(--warning); }
-.dot--pending {
-  background: var(--text-muted);
-  animation: blink 1.4s ease-in-out infinite;
-}
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.empty {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  padding: 12px 0;
-}
-.empty code {
-  background: var(--code-bg);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11.5px;
+  font-size: 14px;
+  padding: var(--space-7) 0;
+  margin: 0;
+  font-style: italic;
 }
 
 .novel-list {
@@ -284,12 +266,13 @@ onMounted(() => {
 .novel-item {
   display: flex;
   align-items: center;
-  padding: 12px 0;
-  border-top: 1px dashed var(--border);
-  transition: background 120ms;
+  padding: var(--space-4) var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-md);
 }
-.novel-item:first-child {
-  border-top: none;
+.novel-item + .novel-item {
+  border-top: 1px solid var(--border-soft);
 }
 .novel-item:hover {
   background: var(--hover-bg);
@@ -298,59 +281,131 @@ onMounted(() => {
   flex: 1;
 }
 .novel-title {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-strong);
+  margin-bottom: var(--space-1);
 }
 .novel-meta {
   font-size: 11.5px;
   color: var(--text-muted);
-  margin-top: 2px;
+  letter-spacing: 0.04em;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.meta-sep {
+  color: var(--border);
+}
+.meta-format {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  background: var(--code-bg);
+  border-radius: var(--radius-sm);
 }
 .open-arrow {
+  color: var(--text-muted);
+  font-size: 24px;
+  padding-right: var(--space-2);
+  font-family: var(--font-serif);
+  transition: all var(--transition-fast);
+}
+.novel-item:hover .open-arrow {
   color: var(--accent);
-  font-size: 16px;
-  padding-right: 4px;
+  transform: translateX(2px);
+}
+
+/* === 状态行 === */
+.status-line {
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.status-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+.status-warn {
+  color: var(--warning);
+}
+.status-err {
+  color: var(--danger);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot--ok { background: var(--success); }
+.dot--err { background: var(--danger); }
+.dot--warn { background: var(--warning); }
+.dot--pending {
+  background: var(--text-muted);
+  animation: blink 1.6s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .delete-btn {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
-  width: 28px;
-  height: 28px;
+  border-radius: var(--radius-md);
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   cursor: pointer;
-  margin-right: 8px;
-  transition: all 120ms;
+  margin-right: var(--space-2);
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+.novel-item:hover .delete-btn {
+  opacity: 1;
 }
 .delete-btn:hover {
   color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: var(--danger-soft);
 }
 
 .footer {
   text-align: center;
-  margin-top: 24px;
-  font-size: 11.5px;
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  font-size: 11px;
   color: var(--text-muted);
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   flex-wrap: wrap;
+  letter-spacing: 0.04em;
 }
 .footer a {
-  color: var(--accent);
-  text-decoration: none;
-  transition: color 150ms;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
 }
 .footer a:hover {
-  text-decoration: underline;
+  color: var(--accent);
+  border-bottom: none;
 }
 .footer .sep {
   color: var(--border);

@@ -209,9 +209,11 @@ def _persist_bible(
         )
 
         # 角色 — 同时记 name → id 映射
+        # 注:DB 内部 id 用 UUID,避免不同 bible 之间的 char_NNN 全局冲突;
+        # yaml_composer 会按顺序重新发 char_NNN(对外的 schema id)。
         name_to_char_id: dict[str, str] = {}
-        for i, c in enumerate(characters, start=1):
-            cid = f"char_{i:03d}"
+        for c in characters:
+            cid = uuid.uuid4().hex
             name = (c.get("name") or "").strip()
             if not name:
                 continue
@@ -234,8 +236,8 @@ def _persist_bible(
                     name_to_char_id.setdefault(a, cid)
 
         # 地点
-        for i, l in enumerate(locations, start=1):
-            lid = f"loc_{i:03d}"
+        for l in locations:
+            lid = uuid.uuid4().hex
             name = (l.get("name") or "").strip()
             if not name:
                 continue
@@ -251,14 +253,14 @@ def _persist_bible(
 
         # 关系(过滤未知 name)
         rel_inserted = 0
-        for i, r in enumerate(relationships, start=1):
+        for r in relationships:
             src_name = (r.get("source_name") or "").strip()
             tgt_name = (r.get("target_name") or "").strip()
             src_id = name_to_char_id.get(src_name)
             tgt_id = name_to_char_id.get(tgt_name)
             if not src_id or not tgt_id:
                 continue
-            rid = f"rel_{i:03d}"
+            rid = uuid.uuid4().hex
             conn.execute(
                 """INSERT INTO bible_relationships
                    (id, bible_id, source_char_id, target_char_id, type, description)
@@ -272,8 +274,8 @@ def _persist_bible(
             rel_inserted += 1
 
         # 事件
-        for i, e in enumerate(events, start=1):
-            eid = f"evt_{i:03d}"
+        for e in events:
+            eid = uuid.uuid4().hex
             desc = (e.get("description") or "").strip()
             if not desc:
                 continue

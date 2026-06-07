@@ -23,6 +23,7 @@ from app.routers import (
     decisions,
     elements,
     novels,
+    optimize,
     scenes,
     story_bibles,
 )
@@ -81,6 +82,7 @@ app.include_router(elements.router)
 app.include_router(attributions.router)
 app.include_router(decisions.router)
 app.include_router(compose.router)
+app.include_router(optimize.router)
 
 
 @app.get("/")

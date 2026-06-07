@@ -514,11 +514,16 @@ def _build_element_no_id(
                 message=f"voiceover 角色 {el.character_name!r} 未在 characters 中,跳过",
             ))
             return None
-        return {
+        vo_dict: dict[str, Any] = {
             "type": "voiceover",
             "character_id": cid,
             "text": text,
         }
+        # voice_source 只在 OS 时显式写入(VO 是默认,省略保持 yaml 简洁)
+        vs = getattr(el, "voice_source", "VO") or "VO"
+        if vs == "OS":
+            vo_dict["voice_source"] = "OS"
+        return vo_dict
 
     warnings.append(ComposeWarning(
         layer="element", path=path,
