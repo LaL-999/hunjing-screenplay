@@ -72,6 +72,18 @@ def api_get_novel(novel_id: str) -> dict:
     return novel
 
 
+@router.delete("/novels/{novel_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_novel(novel_id: str):
+    """删除小说(级联清章节 / 段落 / 故事圣经 / screenplays)。"""
+    deleted = ingest_service.delete_novel(novel_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOVEL_NOT_FOUND", "message": "小说不存在"},
+        )
+    return None
+
+
 @router.get("/chapters/{chapter_id}")
 def api_get_chapter(chapter_id: str) -> dict:
     paragraphs = ingest_service.get_chapter_paragraphs(chapter_id)

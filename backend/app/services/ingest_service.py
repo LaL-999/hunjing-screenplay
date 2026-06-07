@@ -112,6 +112,21 @@ def persist_novel(parsed: ParsedNovel, source_filename: str) -> dict:
     }
 
 
+def delete_novel(novel_id: str) -> bool:
+    """删除小说 — chapters / paragraphs / story_bible / screenplays 走 ON DELETE CASCADE 自动清。
+
+    Returns:
+        True 删除成功 / False 不存在
+    """
+    conn = get_connection()
+    try:
+        cur = conn.execute("DELETE FROM novels WHERE id = ?", (novel_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def list_novels() -> list[dict]:
     """所有上传过的小说(按上传时间倒序)。"""
     conn = get_connection()

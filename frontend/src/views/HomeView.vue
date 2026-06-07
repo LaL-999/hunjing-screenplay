@@ -6,7 +6,8 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import { getHealth, listNovels } from "../api/client";
+import NovelUploadCard from "../components/NovelUploadCard.vue";
+import { deleteNovel, getHealth, listNovels } from "../api/client";
 import type { NovelInfo } from "../types/screenplay";
 
 const router = useRouter();
@@ -45,6 +46,26 @@ async function loadNovels() {
 
 function openEditor(novelId: string) {
   router.push({ name: "screenplay-editor", params: { id: novelId } });
+}
+
+async function handleUploaded(novelId: string) {
+  // 上传成功 → 刷新列表 + 直接跳编辑器
+  await loadNovels();
+  openEditor(novelId);
+}
+
+async function handleDelete(novelId: string, title: string, ev: MouseEvent) {
+  // 阻止冒泡(不要触发 openEditor)
+  ev.stopPropagation();
+  if (!confirm(`确定删除《${title}》?同时清除所有章节、剧本、改编决策。`)) {
+    return;
+  }
+  try {
+    await deleteNovel(novelId);
+    await loadNovels();
+  } catch (e) {
+    alert("删除失败:" + (e instanceof Error ? e.message : String(e)));
+  }
 }
 
 onMounted(() => {
@@ -96,12 +117,13 @@ onMounted(() => {
       </template>
     </section>
 
+    <NovelUploadCard @uploaded="handleUploaded" />
+
     <section class="novels-card">
       <h2>已上传的小说</h2>
       <div v-if="novelsLoading" class="empty">加载中...</div>
       <div v-else-if="novels.length === 0" class="empty">
-        还没有上传过小说 — 使用
-        <code>POST /novels</code> 接口上传 .txt / .epub / .docx 文件
+        还没有上传过小说 — 上面的上传卡拖一个 .txt / .epub / .docx 文件试试
       </div>
       <ul v-else class="novel-list">
         <li
@@ -117,6 +139,27 @@ onMounted(() => {
               {{ n.total_chars.toLocaleString() }} 字
             </div>
           </div>
+          <button
+            class="delete-btn"
+            title="删除"
+            @click="(e) => handleDelete(n.id, n.title, e)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path
+                d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"
+              />
+            </svg>
+          </button>
           <span class="open-arrow">→</span>
         </li>
       </ul>
@@ -268,6 +311,26 @@ onMounted(() => {
   color: var(--accent);
   font-size: 16px;
   padding-right: 4px;
+}
+
+.delete-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 120ms;
+}
+.delete-btn:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .footer {

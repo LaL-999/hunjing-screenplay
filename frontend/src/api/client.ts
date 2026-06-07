@@ -56,6 +56,60 @@ export async function listNovels(): Promise<NovelInfo[]> {
   return r.items ?? [];
 }
 
+/**
+ * 上传小说文件(.txt / .epub / .docx)
+ * 后端走 multipart/form-data,自动解析章节落库。
+ */
+export async function uploadNovel(file: File): Promise<{
+  novel_id: string;
+  title: string;
+  source_format: string;
+  total_chapters: number;
+  total_chars: number;
+  chapters: Array<{
+    id: string;
+    number: number;
+    title: string | null;
+    paragraph_count: number;
+    char_count: number;
+  }>;
+}> {
+  const form = new FormData();
+  form.append("file", file);
+  const r = await fetch(`${API_BASE}/novels`, {
+    method: "POST",
+    body: form,
+  });
+  if (!r.ok) {
+    let code = `HTTP_${r.status}`;
+    let detail = r.statusText;
+    try {
+      const body = await r.json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const d = body.detail as { code?: string; message?: string };
+        code = d.code ?? code;
+        detail = d.message ?? detail;
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(r.status, code, detail);
+  }
+  return r.json();
+}
+
+/**
+ * 删除小说(级联清章节 / 段落 / 故事圣经 / screenplays)
+ */
+export async function deleteNovel(novelId: string): Promise<void> {
+  const r = await fetch(`${API_BASE}/novels/${encodeURIComponent(novelId)}`, {
+    method: "DELETE",
+  });
+  if (!r.ok && r.status !== 404) {
+    throw new ApiError(r.status, `HTTP_${r.status}`, r.statusText);
+  }
+}
+
 export async function getNovel(novelId: string): Promise<
   NovelInfo & {
     chapters: Array<{
