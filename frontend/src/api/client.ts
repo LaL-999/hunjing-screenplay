@@ -178,6 +178,54 @@ export async function getStructureReport(
 }
 
 // ============================================================
+// Export (PR#17) — 触发文件下载
+// ============================================================
+
+export type ExportFormat = "fountain" | "txt" | "yaml";
+
+/**
+ * 下载剧本为指定格式。
+ * 走原生浏览器下载流(走 a 标签触发,带 attachment header)。
+ */
+export async function downloadScreenplay(
+  screenplayId: string,
+  format: ExportFormat,
+): Promise<void> {
+  const url = `${API_BASE}/screenplays/${encodeURIComponent(screenplayId)}/export.${format}`;
+  const r = await fetch(url);
+  if (!r.ok) {
+    let detail = `导出失败 (HTTP ${r.status})`;
+    try {
+      const body = await r.json();
+      if (body?.detail?.message) detail = body.detail.message;
+    } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  // 从 Content-Disposition 拿文件名(RFC 5987 编码,filename*=UTF-8''xxx)
+  const disposition = r.headers.get("Content-Disposition") || "";
+  let filename = `screenplay.${format}`;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match) {
+    try {
+      filename = decodeURIComponent(utf8Match[1]);
+    } catch { /* fallback */ }
+  } else {
+    const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+    if (plainMatch) filename = plainMatch[1];
+  }
+  const blob = await r.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // 释放
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+// ============================================================
 // 优化 + 版本(PR#16)
 // ============================================================
 

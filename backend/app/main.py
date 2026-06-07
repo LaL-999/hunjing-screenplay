@@ -22,6 +22,7 @@ from app.routers import (
     compose,
     decisions,
     elements,
+    export,
     novels,
     optimize,
     scenes,
@@ -83,6 +84,7 @@ app.include_router(attributions.router)
 app.include_router(decisions.router)
 app.include_router(compose.router)
 app.include_router(optimize.router)
+app.include_router(export.router)
 
 
 @app.get("/")

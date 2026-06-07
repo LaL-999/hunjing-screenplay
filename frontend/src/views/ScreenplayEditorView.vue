@@ -12,6 +12,7 @@ import { useRouter } from "vue-router";
 
 import AdaptationDecisionPanel from "../components/AdaptationDecisionPanel.vue";
 import ComposeDialog from "../components/ComposeDialog.vue";
+import ExportMenu from "../components/ExportMenu.vue";
 import NovelTextPanel from "../components/NovelTextPanel.vue";
 import OptimizationModal from "../components/OptimizationModal.vue";
 import ScreenplayPanel from "../components/ScreenplayPanel.vue";
@@ -119,6 +120,7 @@ onMounted(() => {
       </div>
       <div class="topbar-right">
         <VersionSwitcher v-if="store.hasScreenplay" />
+        <ExportMenu v-if="store.hasScreenplay" />
         <button
           class="primary-btn"
           :disabled="
