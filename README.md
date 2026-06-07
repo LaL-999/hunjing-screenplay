@@ -122,6 +122,16 @@ cd frontend && npm install
 npm run dev
 ```
 
+> 💡 **中国大陆评委加速建议**(可选,绕过 PyPI / npmjs 慢):
+> ```bash
+> # Python 走清华镜像
+> pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r backend/requirements.txt
+>
+> # npm 走淘宝镜像
+> npm install --registry=https://registry.npmmirror.com
+> ```
+> 运行时**不需要联通任何境外服务**:LLM 走 DeepSeek 国产 API,字体走系统内置,无 Google Fonts / 无 OpenAI 调用。
+
 ### 3. 配置 LLM Key(可选)
 
 ```bash
